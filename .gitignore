@@ -23,9 +23,11 @@ __pycache__/
 *.onnx
 
 # --- Evaluation outputs ---
-*.csv
-*.png
-*.pdf
+evaluation/*.csv
+models/*.csv
+evaluation/*.png
+evaluation/*.pdf
+
 
 # --- Data (raw + processed) ---
 AudioData/
