@@ -1,0 +1,14 @@
+# requirements.txt
+# Use this for CI or reproducible installs
+
+# Core ML stack
+tensorflow==2.15.1
+keras==2.15.0
+keras-tuner
+
+# BirdNET Analyzer (local clone)
+-e external/BirdNET-Analyzer[train]
+
+# Helpful audio deps
+soundfile
+librosa

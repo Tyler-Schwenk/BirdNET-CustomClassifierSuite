@@ -1,0 +1,44 @@
+# --- Python / venv ---
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.env
+*.egg-info/
+
+# --- Logs & temp files ---
+*.log
+*.tmp
+*.swp
+*.bak
+
+# --- Models & weights ---
+*.tflite
+*.h5
+*.pth
+*.pt
+*.ckpt
+*.onnx
+
+# --- Evaluation outputs ---
+*.csv
+*.png
+*.pdf
+
+# --- Data (raw + processed) ---
+AudioData/
+data/
+evaluation/
+models/
+
+# --- Autotune / external dirs ---
+autotune/
+external/
+
+# --- OS / IDE clutter ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
