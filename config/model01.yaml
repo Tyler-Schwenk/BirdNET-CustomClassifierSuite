@@ -1,0 +1,23 @@
+# configs/model01.yaml
+# Overrides base.yaml for a specific run
+
+dataset:
+  iid_frac: 0.15   # slightly more IID held out
+  val_frac: 0.15
+  ood_recorders: ["11", "12"]
+
+training_package:
+  name: "model01_highmed"
+  quality: ["high", "medium"]
+  call_type: ["grunt", "growl"]
+  balance: true
+  max_per_class: 3000
+
+training:
+  outdir: "models/model01"
+  epochs: 75
+  batch_size: 64
+  autotune: true
+
+evaluation:
+  thresholds: [0.0, 0.05, 0.1, 0.2, 0.25, 0.3, 0.4, 0.5, 0.7, 0.9, 1.0]

@@ -1,0 +1,34 @@
+# configs/base.yaml
+dataset:
+  manifest: "AudioData/manifest.csv"
+  out_manifest: "data/manifest_with_split.csv"
+  iid_frac: 0.12
+  val_frac: 0.10
+  ood_recorders: ["11", "12"]
+  ood_sites: ["srper sylvan pond"]
+  assign_unknown_dates: "train"
+  stats_csv: "data/split_stats.csv"
+  copy_to: "data/splits"
+
+training_package:
+  out_root: "training_packages"
+  include_negatives: true
+  balance: false
+  max_per_class: null
+  seed: 123
+
+training:
+  epochs: 50
+  batch_size: 64
+  threads: 4
+  val_split: 0.2
+  autotune: false
+
+inference:
+  batch_size: 64
+  threads: 4
+  min_conf: 0.01
+
+evaluation:
+  thresholds: [0.0, 0.05, 0.1, 0.2, 0.3, 0.5, 0.7, 0.9, 1.0]
+  output_dir: "evaluation"

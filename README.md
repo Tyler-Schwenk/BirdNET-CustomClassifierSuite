@@ -2,84 +2,73 @@ BirdNET Frog Training Pipeline
 
 Warning - this readme might be out of date!!!
 
-This repository contains a reproducible pipeline for training and evaluating custom BirdNET classifiers for California Red-Legged Frog (RADR).
+Experiment Pipeline Overview
 
-Pipeline Overview (data flow):
-Raw Audio Clips → Data Preprocessing (splits) → Train.ps1 (BirdNET Training) → Trained Model (.tflite) → Run_inference.ps1 (BirdNET Inference) → Evaluation CSVs → evaluate_results.py (Metrics + Plots) → Reports (metrics_summary.csv, metrics_by_group.csv, ROC/PR plots)
+This repository implements a reproducible pipeline for training and evaluating custom BirdNET classifiers for CRLF (Rana draytonii) detection.
 
-Steps
+The goal is to manage the entire lifecycle of model development through a single configuration file. Each experiment is fully reproducible and self-contained: given the same input config, the pipeline produces the same splits, training packages, model weights, inference results, and evaluation metrics.
 
-Prepare data
+Workflow
 
-Store raw audio in AudioData/
+Dataset preparation
 
-Generate training/validation/test splits: train.csv, val.csv, test_iid.csv, test_ood.csv
+make_splits.py creates train/val/test (IID and OOD) splits from the master manifest.
 
-Train model
-Run: train.ps1 with parameters like dataset path, output folder, epochs, batch size, threads.
-Example: .\train.ps1 -DATASET "data/training_packages/baseline_all_trainval" -OUTDIR "models/model01" -EPOCHS 50
+make_training_package.py builds BirdNET-style training packages from those splits using filters (quality, call type, sites, etc).
 
-Run inference
-Run: run_inference.ps1 with model path.
-Example: .\run_inference.ps1 -MODEL_PATH "models/model01/model01.tflite"
-Outputs: evaluation/TestIID and evaluation/TestOOD folders containing CSV results.
+Model training
 
-Evaluate performance
-Run: python evaluate_results.py
-Generates:
+train.py trains a BirdNET custom classifier on the training package.
 
-metrics_summary.csv with precision/recall/F1/accuracy across thresholds
+Outputs include model weights, training logs, and a snapshot of the config.
 
-metrics_by_group.csv with performance by call quality and call type
+Inference
 
-roc_curve.png and pr_curve.png
+run_inference.py runs the trained model on test-IID and test-OOD splits.
 
-Repo Structure
+Outputs combined CSV result tables.
 
-scripts/
-train.ps1
-run_inference.ps1
-evaluate_results.py
-models/
-model01/
-config.yaml
-train.log
+Evaluation
+
+evaluate_results.py computes precision, recall, F1, ROC/PR curves, and breakdowns by quality and call type.
+
+Results are saved as CSV + plots.
+
+Artifact Organization
+
+Each experiment is isolated under an experiments folder:
+
+experiments/model01/
+config_used.yaml
+splits/
+training_package/
+model/
 model01.tflite
+training_log.json
+inference/
+TestIID/BirdNET_CombinedTable.csv
+TestOOD/BirdNET_CombinedTable.csv
 evaluation/
 metrics_summary.csv
 metrics_by_group.csv
-roc_curve.png
-pr_curve.png
-data/
-manifests/
-train.csv
-val.csv
-test_iid.csv
-test_ood.csv
+plots/
 
-Running Experiments
+This makes it easy to run multiple models (model01, model02, …), compare results, and trace each model back to the exact data and hyperparameters used.
 
-Each trained model should have its own folder under models/.
-Each model folder contains:
+Configuration System
 
-config.yaml (parameters used for training)
+Base configs are kept in config/base.yaml.
 
-train.log (training logs)
+Each experiment defines an override config (e.g., config/model01.yaml) that references base values but changes specific settings (dataset filters, training hyperparameters, etc).
 
-.tflite model weights
+Each script saves a snapshot of the config it actually used for reproducibility.
 
-evaluation outputs (CSV + plots)
+Next Steps
 
-This structure makes it easy to compare experiments and track progress.
+The pipeline is being refactored to:
 
-Sample config.yaml
+Ensure every script is config-driven.
 
-dataset: D:/important/projects/Frog/AudioData/ReviewedDataClean/training_packages/baseline_all_trainval
-output_dir: D:/important/projects/Frog/models/model01
-epochs: 50
-batch_size: 64
-threads: 4
-val_split: 0.2
-autotune: false
-autotune_trials: 20
-autotune_executions_per_trial: 2
+Save snapshots of inputs, parameters, and outputs.
+
+Provide a single driver script (run_experiment.py) that executes the full process end-to-end given one config file.
