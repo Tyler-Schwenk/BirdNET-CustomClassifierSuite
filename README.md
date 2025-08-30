@@ -1,79 +1,99 @@
-# BirdNET Frog Training Pipeline
+BirdNET Frog Training Pipeline
 
-⚠️ **Note**: This README is actively being updated as the pipeline is refactored.
+⚠️ Note: This pipeline is under active development. All experiments are fully reproducible from configs.
 
----
+Experiment Pipeline Overview
 
-## Experiment Pipeline Overview
+This repository implements a reproducible, config-driven pipeline for training and evaluating custom BirdNET classifiers for CRLF (Rana draytonii) detection.
 
-This repository implements a reproducible pipeline for training and evaluating custom BirdNET classifiers for CRLF (*Rana draytonii*) detection.
+Each experiment is self-contained: given the same input config, the pipeline produces the same training package, model weights, inference results, and evaluation metrics.
 
-The goal is to manage the entire lifecycle of model development through a single configuration file. Each experiment is fully reproducible and self-contained: given the same input config, the pipeline produces the same training package, model weights, inference results, and evaluation metrics.
+Workflow
+1. Training Package Creation
 
----
+make_training_package.py
+Builds BirdNET-style training folders (RADR/, Negative/) from pre-split data and a manifest.
+Supports filters for quality, call type, site, and recorder.
+Outputs:
 
-## Workflow
+Copied audio organized into class folders.
 
-### Dataset Preparation
-We start from **pre-split data** (`train/`, `val/`, `test_iid/`, `test_ood/`) plus a manifest (`manifest_with_split.csv`) stored under `AudioData/`.  
+selection_report.json/txt: summary of what was included.
 
-- **make_training_package.py**  
-  Builds BirdNET-style training packages from the splits using filters (quality, call type, sites, etc).  
-  Packages are deterministic and logged with reports for reproducibility.
+data_summary.csv: detailed counts by quality, call type, site, and split.
 
-### Model Training
-- **train.ps1 / train.py**  
-  Trains a BirdNET custom classifier on the training package.  
-  Outputs include model weights, training logs, and a snapshot of the config.
+config_used.yaml: exact snapshot of the config used.
 
-### Inference
-- **run_inference.ps1**  
-  Runs the trained model on Test-IID and Test-OOD splits.  
-  Outputs combined CSV result tables for each.
+⚠️ If an experiment folder already exists, the script will stop with a warning to avoid accidental overwrite.
 
-### Evaluation
-- **evaluate_results.py**  
-  Computes precision, recall, F1, ROC/PR curves, and breakdowns by quality and call type.  
-  Results are saved as CSV + plots.
+2. Model Training
 
----
+train.ps1 / train.py (placeholder for now)
+Runs BirdNET training on the generated package.
+Will output weights (.tflite), logs, and metrics.
 
-## Artifact Organization
+3. Inference
 
-Each experiment is isolated under an `experiments/` folder:
+run_inference.ps1
+Applies the trained model to Test-IID and Test-OOD splits.
+Produces combined BirdNET_CombinedTable.csv files per split.
 
-experiments/model01/
-config_used.yaml
-training_package/
-model/
-model01.tflite
-training_log.json
+4. Evaluation
+
+evaluate_results.py
+Aggregates inference results, computes metrics across thresholds, and produces breakdowns by quality, call type, and site.
+Outputs:
+
+metrics_summary.csv (precision/recall/F1 across thresholds)
+
+metrics_by_group.csv (per-quality, per-calltype, etc.)
+
+Plots (ROC, PR, threshold curves).
+
+5. End-to-End Pipeline
+
+pipeline.py
+Single entry point to run steps 1–4 from a config file:
+
+python -m scripts.pipeline --base-config config/base.yaml --override-config config/model01.yaml --verbose
+
+Artifact Organization
+
+Each experiment is isolated in its own folder under training_packages/ (and later experiments/):
+
+training_packages/model01_highmed/
+    RADR/
+    Negative/
+    selection_report.json
+    data_summary.csv
+    config_used.yaml
+    ...
+models/model01/
+    model01.tflite
+    training_log.json
 inference/
-TestIID/BirdNET_CombinedTable.csv
-TestOOD/BirdNET_CombinedTable.csv
+    TestIID/BirdNET_CombinedTable.csv
+    TestOOD/BirdNET_CombinedTable.csv
 evaluation/
-metrics_summary.csv
-metrics_by_group.csv
-plots/
+    metrics_summary.csv
+    metrics_by_group.csv
+    plots/
 
-yaml
-Copy code
 
-This makes it easy to run multiple models (model01, model02, …), compare results, and trace each model back to the exact data and hyperparameters used.
+This structure makes it easy to run multiple experiments (model01, model02, …), compare results, and trace each model back to the exact inputs and parameters.
 
----
+Configuration System
 
-## Configuration System
+Base config: config/base.yaml defines defaults for dataset, training, inference, and evaluation.
 
-- **Base configs** live in `config/base.yaml`.  
-- Each experiment defines an **override config** (e.g., `config/model01.yaml`) that references base values but changes specific settings (dataset filters, training hyperparameters, etc).  
-- Each script saves a snapshot of the config it actually used for reproducibility.
+Override configs (e.g., config/model01.yaml) specialize experiments by changing only what’s needed.
 
----
+The system merges base + override → final config snapshot is always saved with the results.
 
-## Next Steps
+Next Steps
 
-The pipeline is being refactored to:
-- Ensure every script is config-driven.
-- Save snapshots of inputs, parameters, and outputs.
-- Provide a single driver script (`run_experiment.py`) that executes the full process end-to-end given one config file.
+Full integration of training & inference into the pipeline.
+
+Automated evaluation logging into the experiment folder.
+
+Support for reproducible “experiment registry” in experiments/.
