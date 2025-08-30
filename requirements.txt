@@ -12,3 +12,5 @@ keras-tuner
 # Helpful audio deps
 soundfile
 librosa
+pyyaml
+pandas

@@ -1,6 +1,6 @@
-# # utils/config.py
+# utils/config.py
 # Loads configs/base.yaml
-# Loads configs/modelXX.yaml
+# Optionally loads configs/modelXX.yaml
 # Merges the two (model overrides win)
 # Passes a single config dict to the scripts
 
@@ -8,24 +8,24 @@ import yaml
 from pathlib import Path
 from copy import deepcopy
 
-def load_config(base_path: str, override_path: str) -> dict:
+def load_config(base_path: str, override_path: str = None) -> dict:
     """
-    Load a base YAML config and apply overrides from another YAML.
+    Load a base YAML config and optionally apply overrides from another YAML.
     Returns a merged dict.
     """
     base = {}
     override = {}
 
     base_file = Path(base_path)
-    override_file = Path(override_path)
-
     if base_file.exists():
         with open(base_file, "r") as f:
             base = yaml.safe_load(f) or {}
 
-    if override_file.exists():
-        with open(override_file, "r") as f:
-            override = yaml.safe_load(f) or {}
+    if override_path:
+        override_file = Path(override_path)
+        if override_file.exists():
+            with open(override_file, "r") as f:
+                override = yaml.safe_load(f) or {}
 
     return merge_dicts(base, override)
 

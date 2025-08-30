@@ -20,10 +20,7 @@ if (!(Test-Path "external\BirdNET-Analyzer")) {
     git clone https://github.com/kahst/BirdNET-Analyzer.git external/BirdNET-Analyzer
 }
 
-# Install BirdNET in editable mode with training extras
-pip install -e external/BirdNET-Analyzer[train]
-
-# Explicit pins for known compatibility
-pip install "tensorflow==2.15.0" "keras==2.15.0" keras-tuner
+# Install everything from requirements.txt (handles BirdNET + pins + extras)
+pip install -r requirements.txt
 
 Write-Host "`n✅ Environment setup complete. Activate with: .\.venv\Scripts\Activate.ps1"

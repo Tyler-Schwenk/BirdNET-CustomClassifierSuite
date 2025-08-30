@@ -1,17 +1,10 @@
 # configs/base.yaml
 dataset:
-  manifest: "AudioData/manifest.csv"
-  out_manifest: "data/manifest_with_split.csv"
-  iid_frac: 0.12
-  val_frac: 0.10
-  ood_recorders: ["11", "12"]
-  ood_sites: ["srper sylvan pond"]
-  assign_unknown_dates: "train"
-  stats_csv: "data/split_stats.csv"
-  copy_to: "data/splits"
+  audio_root: "AudioData"                  # where your raw/split audio lives
+  manifest: "data/manifest.csv" # the source of truth for splits
 
 training_package:
-  out_root: "training_packages"
+  out_root: "training_packages"            # where packages get written
   include_negatives: true
   balance: false
   max_per_class: null
