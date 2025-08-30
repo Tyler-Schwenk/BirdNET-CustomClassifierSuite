@@ -13,6 +13,7 @@ from typing import List, Optional, Dict, Any, Tuple
 import pandas as pd
 import yaml
 from datetime import datetime
+import getpass, socket, subprocess
 
 CLASS_POS = "RADR"
 CLASS_NEG = "Negative"
@@ -257,12 +258,28 @@ def write_reports(out_dir: Path,
     jsonp = out_dir / "selection_report.json"
     csvp = out_dir / "selection_manifest.csv"
 
+    # try to get git commit
+    try:
+        commit = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], stderr=subprocess.DEVNULL
+        ).decode().strip()
+    except Exception:
+        commit = None
+
+    manifest_path = Path(cfg.get("manifest", "data/manifest.csv")).resolve()
+
     info = {
         "filters": cfg,
         "counts_before": {"pos": int(len(pos)), "neg": int(len(neg))},
         "counts_selected": {"pos": int(len(selection["pos"])), "neg": int(len(selection["neg"]))},
         "copy_counts": copy_counts,
-        "timestamp": datetime.utcnow().isoformat()
+        "metadata": {
+            "timestamp": datetime.utcnow().isoformat(),
+            "git_commit": commit,
+            "manifest_absolute": str(manifest_path),
+            "hostname": socket.gethostname(),
+            "user": getpass.getuser(),
+        }
     }
 
     # human-readable and json dump
@@ -275,7 +292,7 @@ def write_reports(out_dir: Path,
     keep = [c for c in keep if c in sel.columns]
     sel[keep].to_csv(csvp, index=False)
 
-    logging.info(f"📝 Wrote summary reports to {out_dir}")
+    logging.info(f"Wrote summary reports to {out_dir}")
 
 
 # ---------------- Main ----------------

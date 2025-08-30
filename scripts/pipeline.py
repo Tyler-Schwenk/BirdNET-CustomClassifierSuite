@@ -19,7 +19,6 @@ def cleanup_training_package(exp_dir: Path):
         folder = tp_dir / sub
         if folder.exists():
             shutil.rmtree(folder)
-            print(f"🧹 Cleaned up {folder}")
 
 
 
@@ -77,7 +76,7 @@ def main():
     print(f"(Would train model with params: {cfg['training']})")
 
     print("\nPipeline complete!")
-    
+
     print("Cleaning up training package...")
     exp_dir = make_training_package.get_experiment_dir(cfg)
     cleanup_training_package(exp_dir)

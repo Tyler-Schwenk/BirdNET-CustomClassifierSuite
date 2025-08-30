@@ -1,3 +1,6 @@
+# run with: python -m scripts.pipeline --base-config config/base.yaml --override-config config/test_quick.yaml --verbose
+
+
 experiment:
   name: "test_quick_run"   # will go in experiments/test_quick_run/
 
