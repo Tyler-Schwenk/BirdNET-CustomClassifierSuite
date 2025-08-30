@@ -37,12 +37,12 @@ def setup_logging(verbose: bool) -> None:
 # ---------------- Manifest ----------------
 def load_manifest(path: Path, audio_root: Path) -> pd.DataFrame:
     if not path.exists():
-        raise FileNotFoundError(f"❌ Manifest not found at {path.resolve()}")
+        raise FileNotFoundError(f"Manifest not found at {path.resolve()}")
 
     df = pd.read_csv(path)
     df.columns = [str(c).strip().lower() for c in df.columns]
 
-    logging.info(f"✅ Loaded manifest: {path.resolve()}")
+    logging.info(f"Loaded manifest: {path.resolve()}")
     logging.info(f"Columns ({len(df.columns)}): {df.columns.tolist()}")
     logging.info(f"First 5 rows:\n{df.head().to_string()}")
 
@@ -52,7 +52,7 @@ def load_manifest(path: Path, audio_root: Path) -> pd.DataFrame:
     ]
     for col in required:
         if col not in df.columns:
-            raise KeyError(f"❌ Manifest missing required column: {col}")
+            raise KeyError(f"Manifest missing required column: {col}")
 
     # ensure string type
     for col in required:
@@ -85,7 +85,7 @@ def filter_rows(df: pd.DataFrame, args: dict) -> Tuple[pd.DataFrame, pd.DataFram
 
     # sanity check
     if "label" not in df.columns:
-        raise KeyError("❌ Manifest is missing 'label' column!")
+        raise KeyError("Manifest is missing 'label' column!")
 
     present = df[df["split"].str.lower().isin([s.lower() for s in args.get("splits", ["train"])])].copy()
     logging.info(f"Rows after split filter: {len(present)}")
@@ -239,7 +239,7 @@ def write_detailed_counts(out_dir: Path,
 
     df_out = pd.DataFrame(detailed)
     df_out.to_csv(out_dir / "data_summary.csv", index=False)
-    logging.info(f"📊 Wrote detailed counts to {out_dir/'data_summary.csv'}")
+    logging.info(f"Wrote detailed counts to {out_dir/'data_summary.csv'}")
 
 def write_reports(out_dir: Path,
                   cfg: dict,
@@ -293,9 +293,10 @@ def main():
     setup_logging(args.verbose)
 
     audio_root = Path(dataset_cfg.get("audio_root", "AudioData"))
-    manifest = Path(dataset_cfg.get("manifest", "config/manifest_with_split.csv"))
-    out_root = Path(cfg_pkg.get("out_root", "training_packages"))
-    name = cfg_pkg.get("name", "training_package")
+    manifest = Path(dataset_cfg.get("manifest", "data/manifest.csv"))
+    exp_dir = get_experiment_dir(cfg)
+    out_dir = exp_dir / "training_package"
+
 
     df = load_manifest(manifest, audio_root)
     pos, neg = filter_rows(df, cfg_pkg)
@@ -303,10 +304,9 @@ def main():
 
     selection = build_package(pos, neg, cfg_pkg)
 
-    out_dir = out_root / name
     if out_dir.exists():
         raise FileExistsError(
-            f"❌ Training package directory already exists: {out_dir}\n"
+            f"Training package directory already exists: {out_dir}\n"
             f"Pick a new `training_package.name` in your config to avoid overwriting."
         )
 
@@ -323,26 +323,33 @@ def main():
         yaml.safe_dump(cfg, sort_keys=False), encoding="utf-8"
     )
 
-    logging.info(f"✅ Package created at {out_dir}")
+    logging.info(f"Package created at {out_dir}")
 
 
 if __name__ == "__main__":
     main()
 
+def get_experiment_dir(cfg: dict) -> Path:
+    """Resolve the root directory for this experiment."""
+    exp_cfg = cfg.get("experiment", {})
+    name = exp_cfg.get("name", "unnamed_experiment")
+    base = Path("experiments")
+    return base / name
+
+
 def run_from_config(cfg: dict, verbose: bool = False):
-    """
-    Run make_training_package using parameters from a merged config dict.
-    """
     tp_cfg = cfg.get("training_package", {})
     dataset_cfg = cfg.get("dataset", {})
+    exp_cfg = cfg.get("experiment", {})
 
     setup_logging(verbose)
 
     merged_cfg = {
         **tp_cfg,
         "source_root": str(Path(dataset_cfg.get("copy_to", "data/splits"))),
-        "splits": tp_cfg.get("splits", ["train"]),
-        "manifest": str(Path(dataset_cfg.get("manifest", "data/manifest_with_split.csv"))),
+        "splits": tp_cfg.get("splits", ["train"] if tp_cfg else ["train"]),
+        "manifest": str(Path(dataset_cfg.get("manifest", "data/manifest.csv"))),
+        "seed": exp_cfg.get("seed", 123),  
     }
 
     audio_root = Path(dataset_cfg.get("audio_root", "AudioData"))
@@ -351,13 +358,14 @@ def run_from_config(cfg: dict, verbose: bool = False):
     pos, neg = filter_rows(df, merged_cfg)
     selection = build_package(pos, neg, merged_cfg)
 
-    out_dir = Path(tp_cfg.get("out_root", "training_packages")) / tp_cfg.get("name", "unnamed_package")
+    exp_dir = get_experiment_dir(cfg)
+    out_dir = exp_dir / "training_package"
+
     if out_dir.exists():
         raise FileExistsError(
-            f"❌ Training package directory already exists: {out_dir}\n"
-            f"Pick a new `training_package.name` in your config to avoid overwriting."
+            f"Training package directory already exists: {out_dir}\n"
+            f"Pick a new `experiment.name` in your config to avoid overwriting."
         )
-
     out_dir.mkdir(parents=True, exist_ok=False)
 
     copy_counts = copy_files(selection, out_dir, dry_run=tp_cfg.get("dry_run", False))
@@ -367,9 +375,9 @@ def run_from_config(cfg: dict, verbose: bool = False):
     write_detailed_counts(out_dir, pos, neg, selection)
 
     # Save config snapshot
-    (out_dir / "config_used.yaml").write_text(
+    (exp_dir / "config_used.yaml").write_text(
         yaml.safe_dump(cfg, sort_keys=False), encoding="utf-8"
     )
 
-    print(f"✅ Training package created at {out_dir}")
+    print(f"Training package created at {out_dir}")
 

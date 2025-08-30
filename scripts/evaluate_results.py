@@ -113,7 +113,7 @@ def evaluate(df, split_name):
     group_rows = []
     for group_col in ["quality", "calltype"]:
         for group, sub in df.groupby(group_col):
-            if group == "negative":   # 🚫 skip negatives
+            if group == "negative":   # skip negatives
                 continue
             y_true_g = (sub["true_label"]=="RADR").astype(int)
             y_pred_g = (sub["pred_label"]=="RADR").astype(int)

@@ -11,7 +11,7 @@ param(
 
 # Ensure venv is active
 if (-not (Test-Path ".venv")) {
-    Write-Error "❌ Virtual environment not found. Run setup_env.ps1 first."
+    Write-Error "Virtual environment not found. Run setup_env.ps1 first."
     exit 1
 }
 
@@ -33,8 +33,8 @@ if ($AUTOTUNE) {
 }
 
 # Run training
-Write-Host "🚀 Running training..."
+Write-Host "Running training..."
 Write-Host ($cmd -join " ")
 Invoke-Expression ($cmd -join " ")
 
-Write-Host "✅ Training complete. Model saved to $OUTDIR"
+Write-Host "Training complete. Model saved to $OUTDIR"

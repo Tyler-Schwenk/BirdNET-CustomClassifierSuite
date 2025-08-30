@@ -59,15 +59,26 @@ python -m scripts.pipeline --base-config config/base.yaml --override-config conf
 
 Artifact Organization
 
-Each experiment is isolated in its own folder under training_packages/ (and later experiments/):
+Each experiment is isolated in its own folder under training_packages/ (and experiments/):
 
-training_packages/model01_highmed/
-    RADR/
-    Negative/
-    selection_report.json
-    data_summary.csv
+experiments/model01_highmed/
     config_used.yaml
-    ...
+    training_package/
+        RADR/
+        Negative/
+        selection_report.json
+        data_summary.csv
+    model/
+        model01_highmed.tflite
+        training_log.json
+    inference/
+        TestIID/BirdNET_CombinedTable.csv
+        TestOOD/BirdNET_CombinedTable.csv
+    evaluation/
+        metrics_summary.csv
+        metrics_by_group.csv
+        plots/
+
 models/model01/
     model01.tflite
     training_log.json

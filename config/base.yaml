@@ -1,14 +1,15 @@
-# configs/base.yaml
 dataset:
   audio_root: "AudioData"                  # where your raw/split audio lives
-  manifest: "data/manifest.csv" # the source of truth for splits
+  manifest: "data/manifest.csv"            # the source of truth for splits
+
+experiment:
+  name: "base_experiment"                  # every run will live in experiments/<name>/
+  seed: 123
 
 training_package:
-  out_root: "training_packages"            # where packages get written
   include_negatives: true
   balance: false
   max_per_class: null
-  seed: 123
 
 training:
   epochs: 50

@@ -23,4 +23,4 @@ if (!(Test-Path "external\BirdNET-Analyzer")) {
 # Install everything from requirements.txt (handles BirdNET + pins + extras)
 pip install -r requirements.txt
 
-Write-Host "`n✅ Environment setup complete. Activate with: .\.venv\Scripts\Activate.ps1"
+Write-Host "`nEnvironment setup complete. Activate with: .\.venv\Scripts\Activate.ps1"

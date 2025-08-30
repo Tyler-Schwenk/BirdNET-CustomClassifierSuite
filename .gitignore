@@ -27,6 +27,7 @@ evaluation/*.csv
 models/*.csv
 evaluation/*.png
 evaluation/*.pdf
+experiments/*
 
 
 # --- Data (raw + processed) ---
