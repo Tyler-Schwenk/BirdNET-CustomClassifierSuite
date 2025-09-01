@@ -1,36 +1,58 @@
+# scripts/run_inference.ps1
 param(
-    [string]$MODEL_PATH = "D:\important\projects\Frog\models\model01\model01.tflite",
-    [string]$TEST_IID = "D:\important\projects\Frog\AudioData\ReviewedDataClean\splits\test_iid",
-    [string]$TEST_OOD = "D:\important\projects\Frog\AudioData\ReviewedDataClean\splits\test_ood",
-    [string]$OUTPUT_DIR = "D:\important\projects\Frog\evaluation"
+    [string]$CONFIG = "config/base.yaml"
 )
 
 # Activate venv
 & .\.venv\Scripts\Activate.ps1
 
-# Make sure output dirs exist
-New-Item -ItemType Directory -Force -Path $OUTPUT_DIR\TestIID | Out-Null
-New-Item -ItemType Directory -Force -Path $OUTPUT_DIR\TestOOD | Out-Null
+# Load experiment config snapshot (produced by pipeline)
+$cfg = (Get-Content $CONFIG | ConvertFrom-Yaml)
+
+$expName    = $cfg.experiment.name
+$expDir     = Join-Path "experiments" $expName
+$modelDir   = Join-Path $expDir "model"
+$inferenceDir = Join-Path $expDir "inference"
+
+# Grab first .tflite model inside experiment/model
+$modelPath = Get-ChildItem -Path $modelDir -Filter *.tflite | Select-Object -First 1
+if (-not $modelPath) {
+    Write-Error "No .tflite model found in $modelDir"
+    exit 1
+}
+
+# Inference params from config
+$threads   = $cfg.inference.threads
+$batch     = $cfg.inference.batch_size
+$minconf   = $cfg.inference.min_conf
+
+# Input test splits (relative to dataset/audio_root)
+$audioRoot = $cfg.dataset.audio_root
+$testIID   = Join-Path $audioRoot "splits/test_iid"
+$testOOD   = Join-Path $audioRoot "splits/test_ood"
+
+# Ensure output dirs
+New-Item -ItemType Directory -Force -Path (Join-Path $inferenceDir "TestIID") | Out-Null
+New-Item -ItemType Directory -Force -Path (Join-Path $inferenceDir "TestOOD") | Out-Null
 
 Write-Host " Running inference on Test-IID..."
-python -m birdnet_analyzer.analyze "$TEST_IID" `
-    -o "$OUTPUT_DIR\TestIID" `
-    -c "$MODEL_PATH" `
+python -m birdnet_analyzer.analyze "$testIID" `
+    -o (Join-Path $inferenceDir "TestIID") `
+    -c $modelPath `
     --rtype csv `
-    --threads 4 `
-    --batch_size 64 `
-    --min_conf 0.01 `
+    --threads $threads `
+    --batch_size $batch `
+    --min_conf $minconf `
     --combine_results
 
 Write-Host " Running inference on Test-OOD..."
-python -m birdnet_analyzer.analyze "$TEST_OOD" `
-    -o "$OUTPUT_DIR\TestOOD" `
-    -c "$MODEL_PATH" `
+python -m birdnet_analyzer.analyze "$testOOD" `
+    -o (Join-Path $inferenceDir "TestOOD") `
+    -c $modelPath `
     --rtype csv `
-    --threads 4 `
-    --batch_size 64 `
-    --min_conf 0.01 `
+    --threads $threads `
+    --batch_size $batch `
+    --min_conf $minconf `
     --combine_results
 
-Write-Host "Inference complete. Results saved to $OUTPUT_DIR"
-Write-Host " Next step: run metrics script (evaluate_results.py) on the CSV outputs."
+Write-Host "Inference complete. Results saved to $inferenceDir"
