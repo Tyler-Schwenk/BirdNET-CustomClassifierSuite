@@ -28,9 +28,30 @@ config_used.yaml: exact snapshot of the config used.
 
 2. Model Training
 
-train.ps1 / train.py (placeholder for now)
-Runs BirdNET training on the generated package.
-Will output weights (.tflite), logs, and metrics.
+train.ps1 / train.py
+Runs BirdNET training on the generated package. Training parameters (epochs, batch size, threads, val split, autotune, etc.) are taken directly from the merged config that was passed to the pipeline.
+
+Inputs:
+
+experiments/<name>/training_package/ (RADR/ + Negative/ folders, manifests, reports).
+
+experiments/<name>/config_used.yaml (the exact snapshot of config).
+
+Outputs into experiments/<name>/model/:
+
+model.tflite → the trained model weights.
+
+training_log.json → log of loss/accuracy curves and metadata.
+
+Any additional training artifacts produced by BirdNET-Analyzer.
+
+Notes:
+
+Training is run by calling python -m birdnet_analyzer.train.
+
+If autotune: true is set in the config, training will include hyperparameter search with trial/execution settings.
+
+The training package class folders (RADR/, Negative/) are automatically cleaned up after training since the selection_manifest.csv provides a reproducible record of which files were used.
 
 3. Inference
 
