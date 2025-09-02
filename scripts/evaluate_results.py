@@ -2,13 +2,131 @@
 import os
 import pandas as pd
 import numpy as np
+import yaml
+import json
 import matplotlib.pyplot as plt
+from datetime import datetime
 from sklearn.metrics import (
     confusion_matrix, roc_curve, auc,
     precision_recall_curve, average_precision_score
 )
 
 THRESHOLDS = np.arange(0.0, 1.01, 0.05)
+
+def make_experiment_summary(exp_dir: str):
+    eval_dir = os.path.join(exp_dir, "evaluation")
+    metrics_path = os.path.join(eval_dir, "metrics_summary.csv")
+    config_path = os.path.join(exp_dir, "config_used.yaml")
+    data_summary_path = os.path.join(exp_dir, "training_package", "data_summary.csv")
+    selection_report_path = os.path.join(exp_dir, "training_package", "selection_report.json")
+
+    if not os.path.exists(metrics_path) or not os.path.exists(config_path):
+        print("Cannot build experiment_summary.json — missing metrics or config.")
+        return
+
+    # Load metrics + config
+    metrics = pd.read_csv(metrics_path)
+    with open(config_path, "r") as f:
+        cfg = yaml.safe_load(f)
+
+    # Load selection report if available
+    selection_info, metadata = {}, {}
+    if os.path.exists(selection_report_path):
+        with open(selection_report_path, "r") as f:
+            selection_info = json.load(f)
+        metadata = selection_info.get("metadata", {})
+
+    # Load dataset breakdowns
+    breakdown_quality, breakdown_calltype = {}, {}
+    neg_total = None
+    if os.path.exists(data_summary_path):
+        ds = pd.read_csv(data_summary_path)
+        ds_sel = ds[ds["stage"] == "selected"]
+
+        pos_quality = ds_sel[(ds_sel["label"] == "positive") & (ds_sel["group_by"] == "quality")]
+        breakdown_quality = dict(zip(pos_quality["group"], pos_quality["count"]))
+
+        pos_call = ds_sel[(ds_sel["label"] == "positive") & (ds_sel["group_by"] == "call_type")]
+        breakdown_calltype = dict(zip(pos_call["group"], pos_call["count"]))
+
+        neg_sel = ds_sel[(ds_sel["label"] == "negative") & (ds_sel["group_by"] == "split")]
+        neg_total = int(neg_sel["count"].sum()) if not neg_sel.empty else 0
+
+    def clean_row(row_dict):
+        """Keep only essential fields, round floats."""
+        keys = ["threshold", "precision", "recall", "f1", "accuracy", "tp", "fp", "fn", "tn"]
+        clean = {}
+        for k in keys:
+            if k in row_dict:
+                val = row_dict[k]
+                if isinstance(val, (float, np.floating)):
+                    clean[k] = round(float(val), 3)
+                else:
+                    clean[k] = int(val)
+        return clean
+
+    def pick_metrics(df, split):
+        """Return dict of metrics at default=0.5, best F1, high precision + AUROC/AUPRC."""
+        sub = df[df["split"] == split]
+        if sub.empty:
+            return {}
+
+        # Default at threshold 0.5
+        def_row = clean_row(sub.loc[(sub["threshold"] - 0.5).abs().idxmin()].to_dict())
+
+        # Best F1
+        f1_row = clean_row(sub.loc[sub["f1"].idxmax()].to_dict())
+
+        # Highest threshold with precision >= 0.9
+        highp = sub[sub["precision"] >= 0.9]
+        hp_row = clean_row(highp.loc[highp["threshold"].idxmax()].to_dict()) if not highp.empty else None
+
+        # Pull AUROC and AUPRC
+        auc_path = os.path.join(eval_dir, f"summary_{split}.json")
+        auroc, auprc = None, None
+        if os.path.exists(auc_path):
+            with open(auc_path, "r") as f:
+                auc_info = json.load(f)
+                auroc = round(auc_info.get("roc_auc", 0.0), 3)
+                auprc = round(auc_info.get("pr_auc", 0.0), 3)
+
+        return {
+            "default_0.5": def_row,
+            "best_f1": f1_row,
+            "high_precision": hp_row,
+            "auroc": auroc,
+            "auprc": auprc
+        }
+
+    summary = {
+        "experiment": cfg.get("experiment", {}),
+        "training": cfg.get("training", {}),
+        "dataset": {
+            "manifest": cfg.get("dataset", {}).get("manifest"),
+            "filters": selection_info.get("filters", {}),
+            "counts_selected": selection_info.get("counts_selected", {}),
+            "breakdown_selected": {
+                "positive_quality": breakdown_quality,
+                "positive_call_type": breakdown_calltype,
+                "negative_total": neg_total
+            }
+        },
+        "metrics": {
+            "iid": pick_metrics(metrics, "test_iid"),
+            "ood": pick_metrics(metrics, "test_ood")
+        },
+        "metadata": {
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "git_commit": metadata.get("git_commit"),
+            "hostname": metadata.get("hostname"),
+            "user": metadata.get("user")
+        }
+    }
+
+    outpath = os.path.join(eval_dir, "experiment_summary.json")
+    with open(outpath, "w") as f:
+        json.dump(summary, f, indent=2)
+    print(f"Saved {outpath}")
 
 def load_results(folder):
     fpath = os.path.join(folder, "BirdNET_CombinedTable.csv")
@@ -133,4 +251,5 @@ def run_evaluation(exp_dir: str):
 
     pd.concat(all_metrics).to_csv(os.path.join(out_dir, "metrics_summary.csv"), index=False)
     pd.concat(all_groups).to_csv(os.path.join(out_dir, "metrics_by_group.csv"), index=False)
+    make_experiment_summary(exp_dir)
     print(f"Evaluation complete. Metrics written to {out_dir}")
