@@ -12,6 +12,7 @@ import argparse
 from pathlib import Path
 from utils.config import load_config
 import scripts.make_training_package as make_training_package
+import scripts.collect_experiments as collect_experiments
 import scripts.evaluate_results as evaluate_results
 import shutil
 import subprocess
@@ -163,6 +164,10 @@ def main():
     # Step 4: Evaluate results
     print("\n=== STEP 4: Evaluation ===")
     evaluate_results.run_evaluation(str(exp_dir))
+
+    # Step 5: Update master experiment index
+    print("\n=== STEP 5: Updating master experiment index ===")
+    collect_experiments.collect_experiments("experiments", "all_experiments.csv")
 
     print("\nPipeline complete!")
 
