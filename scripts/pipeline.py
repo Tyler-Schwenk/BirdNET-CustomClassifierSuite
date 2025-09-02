@@ -12,9 +12,11 @@ import argparse
 from pathlib import Path
 from utils.config import load_config
 import scripts.make_training_package as make_training_package
+import scripts.evaluate_results as evaluate_results
 import shutil
 import subprocess
 import sys
+
 
 
 def cleanup_training_package(exp_dir: Path):
@@ -158,9 +160,12 @@ def main():
     print("Running inference:", " ".join(cmd_ood))
     subprocess.run(cmd_ood, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
 
+    # Step 4: Evaluate results
+    print("\n=== STEP 4: Evaluation ===")
+    evaluate_results.run_evaluation(str(exp_dir))
+
     print("\nPipeline complete!")
 
-    # Optional cleanup
     print("Cleaning up training package...")
     cleanup_training_package(exp_dir)
     print("Done.")

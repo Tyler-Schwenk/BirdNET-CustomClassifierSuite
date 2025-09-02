@@ -11,14 +11,16 @@ Each experiment is self-contained: given the same input config, the pipeline pro
 Workflow
 1. Training Package Creation
 
-make_training_package.py
+scripts/make_training_package.py
 Builds BirdNET-style training folders (RADR/, Negative/) from pre-split data and a manifest.
-Supports filters for quality, call type, site, and recorder.
+
+Supports filters: quality, call type, site, recorder.
+
 Outputs:
 
-Copied audio organized into class folders.
+RADR/, Negative/ folders (copied audio).
 
-selection_report.json/txt: summary of what was included.
+selection_report.json / .txt: summary of what was included.
 
 data_summary.csv: detailed counts by quality, call type, site, and split.
 
@@ -28,59 +30,81 @@ config_used.yaml: exact snapshot of the config used.
 
 2. Model Training
 
-train.ps1 / train.py
-Runs BirdNET training on the generated package. Training parameters (epochs, batch size, threads, val split, autotune, etc.) are taken directly from the merged config that was passed to the pipeline.
+scripts/pipeline.py (calls birdnet_analyzer.train)
+Runs BirdNET training on the generated package.
 
 Inputs:
 
-experiments/<name>/training_package/ (RADR/ + Negative/ folders, manifests, reports).
+experiments/<name>/training_package/ (RADR/ + Negative/).
 
-experiments/<name>/config_used.yaml (the exact snapshot of config).
+experiments/<name>/config_used.yaml (exact snapshot of config).
 
 Outputs into experiments/<name>/model/:
 
-model.tflite → the trained model weights.
+model.tflite → trained model weights.
 
-training_log.json → log of loss/accuracy curves and metadata.
+training_log.json → log of training/validation metrics.
 
-Any additional training artifacts produced by BirdNET-Analyzer.
+Any additional artifacts from BirdNET-Analyzer.
 
-Notes:
+Config-driven parameters:
+epochs, batch_size, threads, val_split, autotune, etc.
 
-Training is run by calling python -m birdnet_analyzer.train.
+If autotune: true is set, hyperparameter search is performed.
 
-If autotune: true is set in the config, training will include hyperparameter search with trial/execution settings.
-
-The training package class folders (RADR/, Negative/) are automatically cleaned up after training since the selection_manifest.csv provides a reproducible record of which files were used.
+After training, the RADR/ and Negative/ folders are deleted automatically (the exact selection remains reproducible via selection_manifest.csv).
 
 3. Inference
 
-run_inference.ps1
+scripts/pipeline.py (or scripts/run_inference.ps1)
 Applies the trained model to Test-IID and Test-OOD splits.
-Produces combined BirdNET_CombinedTable.csv files per split.
+
+Inputs:
+
+Model (experiments/<name>/model/*.tflite).
+
+Audio test splits (AudioData/splits/test_iid/, AudioData/splits/test_ood/).
+
+Outputs under experiments/<name>/inference/:
+
+test_iid/BirdNET_CombinedTable.csv
+
+test_ood/BirdNET_CombinedTable.csv
+
+BirdNET_analysis_params.csv (metadata from BirdNET).
+
+Config values (threads, batch_size, min_conf) are passed automatically.
 
 4. Evaluation
 
-evaluate_results.py
-Aggregates inference results, computes metrics across thresholds, and produces breakdowns by quality, call type, and site.
-Outputs:
+scripts/evaluate_results.py
+Aggregates inference results, computes metrics across thresholds, and produces breakdowns by quality and call type.
 
-metrics_summary.csv (precision/recall/F1 across thresholds)
+Outputs into experiments/<name>/evaluation/:
 
-metrics_by_group.csv (per-quality, per-calltype, etc.)
+metrics_summary.csv → precision, recall, F1, accuracy, FPR, TNR across thresholds.
 
-Plots (ROC, PR, threshold curves).
+metrics_by_group.csv → per-group breakdown (quality, call type).
+
+roc_curve_<split>.png → ROC plots (Test-IID and Test-OOD).
+
+pr_curve_<split>.png → Precision-Recall plots.
+
+Metrics are aligned with the config thresholds, and every experiment folder contains complete reproducible evaluation artifacts.
 
 5. End-to-End Pipeline
 
-pipeline.py
+scripts/pipeline.py
 Single entry point to run steps 1–4 from a config file:
 
 python -m scripts.pipeline --base-config config/base.yaml --override-config config/model01.yaml --verbose
 
+
+This builds the package, trains the model, runs inference on both test splits, and produces evaluation metrics/plots.
+
 Artifact Organization
 
-Each experiment is isolated in its own folder under training_packages/ (and experiments/):
+Each experiment is isolated under experiments/:
 
 experiments/model01_highmed/
     config_used.yaml
@@ -88,44 +112,37 @@ experiments/model01_highmed/
         RADR/
         Negative/
         selection_report.json
+        selection_manifest.csv
         data_summary.csv
     model/
-        model01_highmed.tflite
+        model.tflite
         training_log.json
     inference/
-        TestIID/BirdNET_CombinedTable.csv
-        TestOOD/BirdNET_CombinedTable.csv
+        test_iid/BirdNET_CombinedTable.csv
+        test_ood/BirdNET_CombinedTable.csv
     evaluation/
         metrics_summary.csv
         metrics_by_group.csv
-        plots/
-
-models/model01/
-    model01.tflite
-    training_log.json
-inference/
-    TestIID/BirdNET_CombinedTable.csv
-    TestOOD/BirdNET_CombinedTable.csv
-evaluation/
-    metrics_summary.csv
-    metrics_by_group.csv
-    plots/
+        roc_curve_test_iid.png
+        pr_curve_test_iid.png
+        roc_curve_test_ood.png
+        pr_curve_test_ood.png
 
 
-This structure makes it easy to run multiple experiments (model01, model02, …), compare results, and trace each model back to the exact inputs and parameters.
+This structure makes it easy to:
+
+Run multiple experiments (model01, model02, …).
+
+Compare results directly.
+
+Trace every trained model back to the exact config, manifest, and data subset used.
 
 Configuration System
 
-Base config: config/base.yaml defines defaults for dataset, training, inference, and evaluation.
+Base config (config/base.yaml): defines defaults for dataset, training, inference, and evaluation.
 
-Override configs (e.g., config/model01.yaml) specialize experiments by changing only what’s needed.
+Override configs (config/model01.yaml, etc.): specialize experiments by changing only what’s needed.
 
-The system merges base + override → final config snapshot is always saved with the results.
+Final merged config is always saved into config_used.yaml in each experiment folder.
 
-Next Steps
-
-Full integration of training & inference into the pipeline.
-
-Automated evaluation logging into the experiment folder.
-
-Support for reproducible “experiment registry” in experiments/.
+This ensures reproducibility across machines and time.
