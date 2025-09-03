@@ -18,13 +18,13 @@ def load_config(base_path: str, override_path: str = None) -> dict:
 
     base_file = Path(base_path)
     if base_file.exists():
-        with open(base_file, "r") as f:
+        with open(base_file, "r", encoding="utf-8") as f:
             base = yaml.safe_load(f) or {}
 
     if override_path:
         override_file = Path(override_path)
         if override_file.exists():
-            with open(override_file, "r") as f:
+            with open(override_file, "r", encoding="utf-8") as f:
                 override = yaml.safe_load(f) or {}
 
     return merge_dicts(base, override)

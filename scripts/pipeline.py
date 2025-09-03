@@ -27,51 +27,53 @@ def cleanup_training_package(exp_dir: Path):
         if folder.exists():
             shutil.rmtree(folder)
 
-
-def get_experiment_dir(cfg: dict) -> Path:
-    """Resolve experiment directory from config."""
-    exp_cfg = cfg.get("experiment", {})
-    name = exp_cfg.get("name")
-    if not name:
-        raise ValueError("Config missing required field: experiment.name")
-    return Path("experiments") / name
+def apply_args(cmd, args_dict):
+    """Append arbitrary CLI args from config to a command."""
+    for key, val in (args_dict or {}).items():
+        if val is None or val is False:
+            continue
+        flag = f"--{key}"
+        if isinstance(val, bool):
+            cmd.append(flag)
+        else:
+            cmd.extend([flag, str(val)])
+    return cmd
 
 
 def build_training_cmd(cfg, exp_dir):
-    """Build BirdNET training command dynamically from config."""
     train_cfg = cfg.get("training", {})
+    extra_train = cfg.get("training_args", {})
     dataset = exp_dir / "training_package"
     outdir = exp_dir / "model"
 
     python_exe = sys.executable
     cmd = [python_exe, "-m", "birdnet_analyzer.train", str(dataset), "-o", str(outdir)]
 
+    # standard training params
     for key, val in train_cfg.items():
         if val is None or val is False:
             continue
-        flag = f"--{key}"  # keys already snake_case -> CLI uses same
+        flag = f"--{key}"
         if isinstance(val, bool):
             cmd.append(flag)
         else:
             cmd.extend([flag, str(val)])
 
+    # NEW: training_args passthrough
+    cmd = apply_args(cmd, extra_train)
     return cmd
 
 
 def build_inference_cmd(cfg, exp_dir, split: str):
-    """Build BirdNET inference command for Test-IID or Test-OOD."""
     inf_cfg = cfg.get("inference", {})
+    extra_analyze = cfg.get("analyzer_args", {})
     python_exe = sys.executable
 
-    # Use helper to find trained model
     model_path = find_model_file(exp_dir)
-
-    # Input split directory from AudioData/splits
     dataset_cfg = cfg.get("dataset", {})
     audio_root = Path(dataset_cfg.get("audio_root", "AudioData"))
-    test_split = audio_root / "splits" / split.lower()   # e.g. splits/test_iid
+    test_split = audio_root / "splits" / split.lower()
 
-    # Output directory under experiment
     outdir = exp_dir / "inference" / split
     outdir.mkdir(parents=True, exist_ok=True)
 
@@ -84,17 +86,18 @@ def build_inference_cmd(cfg, exp_dir, split: str):
         "--combine_results",
     ]
 
-    # Add config-driven params
-    for key, val in inf_cfg.items():
-        if val is None or val is False:
-            continue
-        flag = f"--{key}"
-        if isinstance(val, bool):
-            cmd.append(flag)
-        else:
-            cmd.extend([flag, str(val)])
-
+    cmd = apply_args(cmd, inf_cfg)        # normal inference config
+    cmd = apply_args(cmd, extra_analyze)  # analyzer_args passthrough
     return cmd
+
+
+def get_experiment_dir(cfg: dict) -> Path:
+    """Resolve experiment directory from config."""
+    exp_cfg = cfg.get("experiment", {})
+    name = exp_cfg.get("name")
+    if not name:
+        raise ValueError("Config missing required field: experiment.name")
+    return Path("experiments") / name
 
 
 def find_model_file(exp_dir: Path) -> Path:

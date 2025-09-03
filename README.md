@@ -48,7 +48,10 @@ training_log.json → log of training/validation metrics.
 Any additional artifacts from BirdNET-Analyzer.
 
 Config-driven parameters:
-epochs, batch_size, threads, val_split, autotune, etc.
+
+training: epochs, batch_size, threads, val_split, autotune.
+
+training_args: arbitrary BirdNET training CLI flags (e.g., fmin, fmax, overlap).
 
 If autotune: true is set, hyperparameter search is performed.
 
@@ -71,9 +74,13 @@ test_iid/BirdNET_CombinedTable.csv
 
 test_ood/BirdNET_CombinedTable.csv
 
-BirdNET_analysis_params.csv (metadata from BirdNET).
+Config-driven parameters:
 
-Config values (threads, batch_size, min_conf) are passed automatically.
+inference: threads, batch_size, min_conf.
+
+analyzer_args: arbitrary BirdNET inference CLI flags (e.g., fmin, fmax, overlap, sensitivity).
+
+⚠️ Some arguments (e.g., fmin, fmax) should be set consistently for both training and inference. Include them in both training_args and analyzer_args to ensure consistency.
 
 4. Evaluation
 
@@ -90,17 +97,28 @@ roc_curve_<split>.png → ROC plots (Test-IID and Test-OOD).
 
 pr_curve_<split>.png → Precision-Recall plots.
 
-Metrics are aligned with the config thresholds, and every experiment folder contains complete reproducible evaluation artifacts.
+experiment_summary.json → compact, comparable summary including config, dataset breakdown, metrics, and CLI args used.
 
-5. End-to-End Pipeline
+5. Master Experiment Index
+
+scripts/collect_experiments.py
+Scans all experiments/*/evaluation/experiment_summary.json and merges them into a single CSV (all_experiments.csv).
+
+Deduplicates experiments based on name + commit + timestamp.
+
+Produces a flat, analysis-ready CSV for comparing 100+ runs.
+
+Safe to re-run — only new experiments are added.
+
+6. End-to-End Pipeline
 
 scripts/pipeline.py
-Single entry point to run steps 1–4 from a config file:
+Single entry point to run steps 1–5 from a config file:
 
 python -m scripts.pipeline --base-config config/base.yaml --override-config config/model01.yaml --verbose
 
 
-This builds the package, trains the model, runs inference on both test splits, and produces evaluation metrics/plots.
+This builds the package, trains the model, runs inference on both test splits, evaluates results, and updates the master experiment index.
 
 Artifact Organization
 
@@ -123,6 +141,7 @@ experiments/model01_highmed/
     evaluation/
         metrics_summary.csv
         metrics_by_group.csv
+        experiment_summary.json
         roc_curve_test_iid.png
         pr_curve_test_iid.png
         roc_curve_test_ood.png
@@ -135,14 +154,26 @@ Run multiple experiments (model01, model02, …).
 
 Compare results directly.
 
-Trace every trained model back to the exact config, manifest, and data subset used.
+Trace every trained model back to the exact config, manifest, CLI args, and data subset used.
 
 Configuration System
 
-Base config (config/base.yaml): defines defaults for dataset, training, inference, and evaluation.
+Base config (config/base.yaml): defines defaults for dataset, training, inference, evaluation, and optional passthrough args.
 
 Override configs (config/model01.yaml, etc.): specialize experiments by changing only what’s needed.
 
 Final merged config is always saved into config_used.yaml in each experiment folder.
+
+Sections
+
+training: built-in BirdNET training flags.
+
+training_args: passthrough CLI flags for birdnet_analyzer.train.
+
+inference: built-in analyzer params.
+
+analyzer_args: passthrough CLI flags for birdnet_analyzer.analyze.
+
+⚠️ Keep shared args (e.g., fmin, fmax, overlap) consistent between training_args and analyzer_args.
 
 This ensures reproducibility across machines and time.

@@ -26,3 +26,12 @@ inference:
 evaluation:
   thresholds: [0.3, 0.5, 0.7]   # fewer thresholds, still tests eval
   output_dir: "evaluation"
+
+training_args:
+  fmin: 0
+  fmax: 8000
+
+analyzer_args:
+  fmin: 0
+  fmax: 8000
+  sensitivity: 1.0

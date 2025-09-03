@@ -1,3 +1,37 @@
+# ===========================================================
+# Base configuration for BirdNET Frog Training pipeline
+# -----------------------------------------------------------
+# To run new experiments:
+#   - Copy this file to config/<experiment_name>.yaml
+#   - Change experiment.name to something unique
+#   - Override any training, inference, training_args, or analyzer_args values
+#   - Run pipeline.py with --override-config config/<experiment_name>.yaml
+#
+# The training_args and analyzer_args sections are passthroughs:
+#   - training_args → forwarded to birdnet_analyzer.train
+#   - analyzer_args → forwarded to birdnet_analyzer.analyze
+#
+# ⚠️ IMPORTANT: Some arguments (e.g., fmin, fmax, overlap) must be 
+# set consistently for both training *and* inference. If you use 
+# these, make sure to include them in BOTH sections to avoid 
+# mismatches between how your model is trained vs. evaluated.
+#
+# Example:
+#
+# training_args:
+#   fmin: 0
+#   fmax: 8000
+#   overlap: 0.5
+#
+# analyzer_args:
+#   fmin: 0
+#   fmax: 8000
+#   overlap: 0.5
+#   sensitivity: 1.1
+#
+# If omitted, BirdNET’s defaults are used.
+# -----------------------------------------------------------
+
 dataset:
   audio_root: "AudioData"                  # where your raw/split audio lives
   manifest: "data/manifest.csv"            # the source of truth for splits
@@ -26,3 +60,7 @@ inference:
 evaluation:
   thresholds: [0.0, 0.05, 0.1, 0.2, 0.3, 0.5, 0.7, 0.9, 1.0]
   output_dir: "evaluation"
+
+training_args: {}   # args passed to birdnet_analyzer.train
+analyzer_args: {}   # args passed to birdnet_analyzer.analyze
+

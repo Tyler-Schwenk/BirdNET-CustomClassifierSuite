@@ -64,6 +64,14 @@ def make_experiment_summary(exp_dir: str):
                 else:
                     clean[k] = int(val)
         return clean
+    
+    def safe_round(val, ndigits=3):
+        if val is None:
+            return None
+        try:
+            return round(float(val), ndigits)
+        except Exception:
+            return None
 
     def pick_metrics(df, split):
         """Return dict of metrics at default=0.5, best F1, high precision + AUROC/AUPRC."""
@@ -87,8 +95,9 @@ def make_experiment_summary(exp_dir: str):
         if os.path.exists(auc_path):
             with open(auc_path, "r") as f:
                 auc_info = json.load(f)
-                auroc = round(auc_info.get("roc_auc", 0.0), 3)
-                auprc = round(auc_info.get("pr_auc", 0.0), 3)
+                auroc = safe_round(auc_info.get("roc_auc"))
+                auprc = safe_round(auc_info.get("pr_auc"))
+
 
         return {
             "default_0.5": def_row,
@@ -122,6 +131,12 @@ def make_experiment_summary(exp_dir: str):
             "user": metadata.get("user")
         }
     }
+
+    if "training_args" in cfg and cfg["training_args"]:
+        summary["training_args"] = cfg["training_args"]
+    if "analyzer_args" in cfg and cfg["analyzer_args"]:
+        summary["analyzer_args"] = cfg["analyzer_args"]
+
 
     outpath = os.path.join(eval_dir, "experiment_summary.json")
     with open(outpath, "w") as f:
