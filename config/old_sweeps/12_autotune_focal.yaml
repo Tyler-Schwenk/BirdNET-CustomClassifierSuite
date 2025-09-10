@@ -1,0 +1,23 @@
+# 12_autotune_focal.yaml
+experiment:
+  name: "12_autotune_focal"
+  seed: 123
+training_package:
+  include_negatives: true
+  balance: true
+  max_per_class: null
+training:
+  epochs: 50
+  batch_size: 32
+  threads: 4
+  val_split: 0.2
+  autotune: true
+training_args:
+  focal-loss: true
+inference:
+  batch_size: 32
+  threads: 4
+  min_conf: 0.05
+evaluation:
+  thresholds: [0.1, 0.25, 0.5, 0.75]
+  output_dir: "evaluation"

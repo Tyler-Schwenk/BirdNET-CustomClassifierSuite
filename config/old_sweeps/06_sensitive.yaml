@@ -1,0 +1,28 @@
+# Slightly increase sensitivity
+experiment:
+  name: "06_sensitive"
+  seed: 123
+
+training_package:
+  include_negatives: true
+  balance: true
+  max_per_class: null
+
+training:
+  epochs: 50
+  batch_size: 32
+  threads: 4
+  val_split: 0.2
+  autotune: false
+
+inference:
+  batch_size: 32
+  threads: 4
+  min_conf: 0.05
+
+analyzer_args:
+  sensitivity: 1.1
+
+evaluation:
+  thresholds: [0.1, 0.2, 0.3, 0.5, 0.7, 0.9]
+  output_dir: "evaluation"

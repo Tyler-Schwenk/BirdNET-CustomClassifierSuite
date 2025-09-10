@@ -1,0 +1,47 @@
+analyzer_args:
+  fmax: 8000
+  fmin: 0
+  overlap: 0.5
+  sensitivity: 1.0
+dataset:
+  audio_root: AudioData
+  manifest: data/manifest.csv
+evaluation:
+  output_dir: evaluation
+  thresholds:
+  - 0.0
+  - 0.1
+  - 0.25
+  - 0.5
+  - 0.75
+  - 0.9
+  - 1.0
+experiment:
+  name: sweep_040
+  seed: 123
+inference:
+  batch_size: 8
+  min_conf: 0.25
+  threads: 4
+training:
+  autotune: false
+  batch_size: 8
+  epochs: 50
+  threads: 4
+  val_split: 0.2
+training_args:
+  dropout: 0.25
+  focal-loss: false
+  hidden_units: 2048
+  label_smoothing: true
+  learning_rate: 0.0005
+  mixup: true
+  upsampling_mode: linear
+  upsampling_ratio: 0.5
+training_package:
+  balance: true
+  include_negatives: true
+  max_per_class: null
+  quality:
+  - high
+  - medium
