@@ -11,9 +11,9 @@ End-to-end pipeline for BirdNET Frog Training.
 import argparse
 from pathlib import Path
 from utils.config import load_config
-import scripts.make_training_package as make_training_package
-import scripts.collect_experiments as collect_experiments
-import scripts.evaluate_results as evaluate_results
+import scripts.pipeline.make_training_package as make_training_package
+import scripts.pipeline.collect_experiments as collect_experiments
+import scripts.pipeline.evaluate_results as evaluate_results
 import shutil
 import subprocess
 import sys
@@ -26,6 +26,16 @@ def cleanup_training_package(exp_dir: Path):
         folder = tp_dir / sub
         if folder.exists():
             shutil.rmtree(folder)
+
+def cleanup_inference_dirs(exp_dir: Path):
+    """Remove positive/negative subfolders inside inference results."""
+    for split in ["test_iid", "test_ood"]:
+        split_dir = exp_dir / "inference" / split
+        for sub in ["positive", "negative"]:
+            target = split_dir / sub
+            if target.exists() and target.is_dir():
+                shutil.rmtree(target, ignore_errors=True)
+                print(f"Removed {target}")
 
 def apply_args(cmd, args_dict):
     """Append arbitrary CLI args from config to a command."""
@@ -176,6 +186,10 @@ def main():
 
     print("Cleaning up training package...")
     cleanup_training_package(exp_dir)
+
+    print("Cleaning up inference subfolders...")
+    cleanup_inference_dirs(exp_dir)
+
     print("Done.")
 
 

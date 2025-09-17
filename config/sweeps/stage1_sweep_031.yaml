@@ -1,0 +1,11 @@
+experiment:
+  name: stage1_sweep_031
+  seed: 123
+training:
+  batch_size: 16
+inference:
+  batch_size: 16
+training_args:
+  hidden_units: 128
+  dropout: 0.5
+  learning_rate: 0.0001

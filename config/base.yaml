@@ -29,38 +29,60 @@
 #   overlap: 0.5
 #   sensitivity: 1.1
 #
-# If omitted, BirdNET’s defaults are used.
+# -----------------------------------------------------------
+# Explicitly defines BirdNET defaults for clarity.
+# Any sweeps or overrides should reference this file.
 # -----------------------------------------------------------
 
 dataset:
-  audio_root: "AudioData"                  # where your raw/split audio lives
-  manifest: "data/manifest.csv"            # the source of truth for splits
+  audio_root: "AudioData"
+  manifest: "data/manifest.csv"
 
 experiment:
-  name: "base_experiment"                  # every run will live in experiments/<name>/
+  name: "base_experiment"
   seed: 123
 
 training_package:
   include_negatives: true
-  balance: false
+  balance: true
   max_per_class: null
+  quality: ["high", "medium"]   # start simple; low quality can be tested later
 
 training:
   epochs: 50
-  batch_size: 64
+  batch_size: 32                # BirdNET default = 32
   threads: 4
   val_split: 0.2
   autotune: false
 
 inference:
-  batch_size: 64
+  batch_size: 32                # BirdNET default = 32
   threads: 4
-  min_conf: 0.01
+  min_conf: 0.5                 # BirdNET default = 0.25 (we set 0.5 as stricter baseline)
 
 evaluation:
-  thresholds: [0.0, 0.05, 0.1, 0.2, 0.3, 0.5, 0.7, 0.9, 1.0]
+  thresholds: [0.5]             # Minimal inference threshold (full sweep handled in evaluate_results.py)
   output_dir: "evaluation"
 
-training_args: {}   # args passed to birdnet_analyzer.train
-analyzer_args: {}   # args passed to birdnet_analyzer.analyze
+# --- BirdNET Analyzer training_args (explicit defaults) ---
+training_args:
+  fmin: 0                       # BirdNET default
+  fmax: 15000                   # BirdNET default
+  overlap: 0.0                  # BirdNET default
+  dropout: 0.0                  # BirdNET default
+  hidden_units: 0               # BirdNET default (single-layer classifier)
+  learning_rate: 0.0001         # BirdNET default
+  focal-loss: false             # BirdNET default
+  focal-loss-gamma: 2.0         # BirdNET default
+  focal-loss-alpha: 0.25        # BirdNET default
+  label_smoothing: false        # BirdNET default
+  mixup: false                  # BirdNET default
+  upsampling_ratio: 0.0         # BirdNET default
+  upsampling_mode: repeat       # BirdNET default
 
+# --- BirdNET Analyzer inference_args (explicit defaults) ---
+analyzer_args:
+  fmin: 0                       # BirdNET default
+  fmax: 15000                   # BirdNET default
+  overlap: 0.0                   # BirdNET default
+  sensitivity: 1.0              # BirdNET default
