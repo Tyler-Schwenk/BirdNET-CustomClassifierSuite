@@ -69,9 +69,9 @@ training_args:
   fmin: 0                       # BirdNET default
   fmax: 15000                   # BirdNET default
   overlap: 0.0                  # BirdNET default
-  dropout: 0.0                  # BirdNET default
-  hidden_units: 0               # BirdNET default (single-layer classifier)
-  learning_rate: 0.0001         # BirdNET default
+  dropout: 0.25          # fixed anchor
+  hidden_units: 512      # fixed anchor
+  learning_rate: 0.0005  # fixed anchor
   focal-loss: false             # BirdNET default
   focal-loss-gamma: 2.0         # BirdNET default
   focal-loss-alpha: 0.25        # BirdNET default

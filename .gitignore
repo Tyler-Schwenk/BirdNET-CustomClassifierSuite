@@ -15,10 +15,15 @@ __pycache__/
 *.bak
 
 # --- Configs ---
-config/*.yaml
-config/*.yml
+# Ignore all YAML files recursively
+config/**/*.yaml
+config/**/*.yml
+
+# Keep base.yaml
 !config/base.yaml
-!config/sweeps/*.yaml
+
+# Keep everything under sweeps
+!config/sweeps/**/*.yaml
 
 # --- Models & weights ---
 *.tflite
