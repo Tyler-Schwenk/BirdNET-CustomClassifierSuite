@@ -1,0 +1,58 @@
+# ===========================================================
+# BirdNET-CustomClassifierSuite — Sweep Spec Example
+# -----------------------------------------------------------
+# Example specification file for the sweep generator.
+# This defines which hyperparameters to vary (axes)
+# and which to keep fixed (base_params).
+#
+# To generate the sweep configs:
+#     python -m birdnet_custom_classifier_suite.sweeps.sweep_generator --spec config/sweep_specs/example_sweep.yaml
+#
+# Output will appear under config/sweeps/<out_dir>
+# ===========================================================
+
+# Stage identifier (for naming only)
+stage: 1
+
+# Directory where sweep YAMLs and manifest.csv will be created
+out_dir: "config/sweeps/example_sweep"
+
+# ===========================================================
+# Sweep Axes
+# -----------------------------------------------------------
+# Each key lists the values to explore. The generator will
+# create the Cartesian product of all these combinations.
+# ===========================================================
+axes:
+  hidden_units: [0, 128, 512]
+  dropout: [0.0, 0.25]
+  learning_rate: [0.0001, 0.0005, 0.001]
+  batch_size: [16, 32]
+  seed: [123]
+
+# ===========================================================
+# Base Parameters
+# -----------------------------------------------------------
+# These remain fixed across all configurations in this sweep.
+# They will appear in every generated YAML file.
+# ===========================================================
+base_params:
+  epochs: 50
+  upsampling_ratio: 0.0
+  mixup: false
+  label_smoothing: false
+  focal_loss: false
+  dropout: 0.25
+  learning_rate: 0.0005
+  batch_size: 32
+
+# ===========================================================
+# Notes
+# -----------------------------------------------------------
+# This sweep explores model capacity and regularization by
+# varying hidden_units, dropout, learning_rate, and batch_size.
+#
+# All other BirdNET parameters (fmin, fmax, overlap, etc.)
+# should be inherited from config/base.yaml when running
+# the training pipeline.
+# ===========================================================
