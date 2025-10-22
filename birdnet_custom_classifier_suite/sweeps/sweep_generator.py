@@ -1,119 +1,77 @@
 #!/usr/bin/env python3
 """
-Stage 4 Unified Sweep Generator — Robustness Suite
----------------------------------------------------
-Full-factorial robustness sweep covering:
-  - Quality levels: ["high"], ["high","medium"], ["high","medium","low"]
-  - Balance: True / False
-  - Upsampling mode: repeat / linear
-  - Upsampling ratio: 0.0 / 0.3 / 0.5
-  - Seeds: 123 / 456 / 789
+General sweep generator for BirdNET-CustomClassifierSuite
+Creates factorial or partial-factorial sweeps and writes YAML + manifest CSV.
 
-Generates 3 × 2 × 2 × 3 × 3 = 108 YAML configs
-and a manifest CSV for tracking.
+python -m birdnet_custom_classifier_suite.sweeps.sweep_generator --spec config/sweep_specs/example_sweep.yaml
+
 """
 
-import itertools
-import yaml
-import csv
+import itertools, yaml, csv
 from pathlib import Path
 
-# ---- Fixed anchors ----
-HIDDEN_UNITS = 512
-DROPOUT = 0.25
-BATCH_SIZE = 32
-LEARNING_RATE = 0.0005
-FOCAL_LOSS = False
-LABEL_SMOOTHING = True
-MIXUP = True
-SEEDS = [123, 456, 789]
+def generate_sweep(stage:int, out_dir:str, axes:dict, base_params:dict, prefix:str="stage"):
+    root = Path(out_dir)
+    root.mkdir(parents=True, exist_ok=True)
+    manifest_path = root / "manifest.csv"
 
-# ---- Sweep axes ----
-QUALITIES = [
-    ["high"],
-    ["high", "medium"],
-    ["high", "medium", "low"],
-]
-BALANCES = [True, False]
-UPSAMPLING_MODES = ["repeat", "linear"]
-UPSAMPLING_RATIOS = [0.0, 0.3, 0.5]
+    def make_cfg(idx, combo):
+        exp_name = f"{prefix}{stage}_{idx:03d}"
+        cfg = {
+            "experiment": {"name": exp_name, "seed": combo["seed"]},
+            "training": {"batch_size": base_params.get("batch_size", 32)},
+            "inference": {"batch_size": base_params.get("batch_size", 32)},
+            "training_package": {
+                "include_negatives": True,
+                "balance": combo["balance"],
+                "quality": combo["quality"],
+            },
+            "training_args": {
+                **base_params,
+                "upsampling_mode": combo["upsampling_mode"],
+                "upsampling_ratio": combo["upsampling_ratio"],
+            },
+        }
+        path = root / f"{exp_name}.yaml"
+        with open(path, "w") as f:
+            yaml.safe_dump(cfg, f, sort_keys=False)
+        return {
+            "name": exp_name,
+            "seed": combo["seed"],
+            "quality": ",".join(combo["quality"]),
+            "balance": combo["balance"],
+            "mode": combo["upsampling_mode"],
+            "ratio": combo["upsampling_ratio"],
+        }
 
-# ---- Output paths ----
-ROOT = Path("config/sweeps/stage4_unified")
-ROOT.mkdir(parents=True, exist_ok=True)
-MANIFEST_PATH = ROOT / "manifest.csv"
+    axes_keys = list(axes.keys())
+    combos = [dict(zip(axes_keys, values))
+              for values in itertools.product(*axes.values())]
 
-# ============================================================
-# Helper for writing individual config YAMLs
-# ============================================================
-def write_cfg(idx, params):
-    cfg = {
-        "experiment": {
-            "name": f"stage4_{idx:03d}",
-            "seed": params["seed"],
-        },
-        "training": {"batch_size": BATCH_SIZE},
-        "inference": {"batch_size": BATCH_SIZE},
-        "training_package": {
-            "include_negatives": True,
-            "balance": params["balance"],
-            "quality": params["quality"],
-        },
-        "training_args": {
-            "hidden_units": HIDDEN_UNITS,
-            "dropout": DROPOUT,
-            "learning_rate": LEARNING_RATE,
-            "label_smoothing": LABEL_SMOOTHING,
-            "mixup": MIXUP,
-            "focal-loss": FOCAL_LOSS,
-            "focal-loss-gamma": 2.0 if FOCAL_LOSS else 0.0,
-            "focal-loss-alpha": 0.25 if FOCAL_LOSS else 0.0,
-            "upsampling_mode": params["upsampling_mode"],
-            "upsampling_ratio": params["upsampling_ratio"],
-        },
-    }
+    manifest = [make_cfg(i + 1, combo) for i, combo in enumerate(combos)]
 
-    outpath = ROOT / f"{cfg['experiment']['name']}.yaml"
-    with open(outpath, "w") as f:
-        yaml.safe_dump(cfg, f, sort_keys=False)
+    with open(manifest_path, "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=manifest[0].keys())
+        writer.writeheader()
+        writer.writerows(manifest)
 
-    return {
-        "name": cfg["experiment"]["name"],
-        "seed": params["seed"],
-        "quality": ",".join(params["quality"]),
-        "balance": params["balance"],
-        "mode": params["upsampling_mode"],
-        "ratio": params["upsampling_ratio"],
-    }
+    print(f"Generated {len(manifest)} configs at {root}")
+    print(f"Manifest written to {manifest_path}")
 
-# ============================================================
-# Generate full factorial sweep
-# ============================================================
-manifest = []
-idx = 0
-for quality, balance, mode, ratio, seed in itertools.product(
-    QUALITIES, BALANCES, UPSAMPLING_MODES, UPSAMPLING_RATIOS, SEEDS
-):
-    idx += 1
-    entry = write_cfg(idx, {
-        "quality": quality,
-        "balance": balance,
-        "upsampling_mode": mode,
-        "upsampling_ratio": ratio,
-        "seed": seed,
-    })
-    manifest.append(entry)
+if __name__ == "__main__":
+    import argparse, yaml
 
-# ============================================================
-# Write manifest CSV
-# ============================================================
-with open(MANIFEST_PATH, "w", newline="") as f:
-    writer = csv.DictWriter(
-        f,
-        fieldnames=["name", "seed", "quality", "balance", "mode", "ratio"],
+    ap = argparse.ArgumentParser(description="Run sweep generation from YAML spec")
+    ap.add_argument("--spec", type=str, required=True, help="Path to sweep spec YAML or JSON file")
+    args = ap.parse_args()
+
+    spec_path = Path(args.spec)
+    with open(spec_path, "r", encoding="utf-8") as f:
+        spec = yaml.safe_load(f)
+
+    generate_sweep(
+        stage=spec["stage"],
+        out_dir=spec["out_dir"],
+        axes=spec["axes"],
+        base_params=spec["base_params"],
     )
-    writer.writeheader()
-    writer.writerows(manifest)
-
-print(f"✅ Generated {idx} Stage 4 unified configs in {ROOT.resolve()}")
-print(f"🧾 Manifest written to: {MANIFEST_PATH.resolve()}")

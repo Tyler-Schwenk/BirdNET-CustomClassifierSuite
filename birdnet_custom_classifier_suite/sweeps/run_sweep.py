@@ -31,7 +31,7 @@ def get_experiment_name(config_path: Path) -> str:
 def run_pipeline(config: Path, base_config: Path, verbose: bool = False) -> bool:
     """Run pipeline.py for a single config. Returns True if successful."""
     cmd = [
-        sys.executable, "-m", "pipeline.pipeline",
+        sys.executable, "-m", "birdnet_custom_classifier_suite.pipeline.pipeline",
         "--base-config", str(base_config),
         "--override-config", str(config),
     ]

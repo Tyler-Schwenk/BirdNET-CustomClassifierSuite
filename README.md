@@ -1,179 +1,200 @@
-BirdNET Frog Training Pipeline
+# 🐸 BirdNET-CustomClassifierSuite
+
+A modular, reproducible pipeline for training and evaluating **custom BirdNET classifiers**  
+(e.g., for species detection like California Red-legged Frog, Bullfrog, etc.).
+
+This suite automates every stage of the workflow — from data packaging and model training  
+to inference, evaluation, and multi-config sweep generation.
+
+---
+
+## 📦 Repository Overview
+
+```
+BirdNET-CustomClassifierSuite/
+│
+├── birdnet_custom_classifier_suite/   ← Python package
+│   ├── pipeline/                      ← Core training + inference pipeline
+│   ├── sweeps/                        ← Sweep generation + batch execution
+│   ├── eval_toolkit/                  ← Aggregation and review utilities
+│   └── utils/
+│
+├── config/
+│   ├── base.yaml                      ← Global defaults (shared across stages)
+│   ├── sweep_specs/                   ← Tracked sweep definitions (YAML)
+│   │   ├── example_sweep.yaml
+│   │   └── test_sweep.yaml
+│   └── sweeps/                        ← Generated sweeps (ignored by Git)
+│       ├── test_sweep/
+│       │   ├── stage0_001.yaml
+│       │   ├── ...
+│       │   └── manifest.csv
+│
+├── experiments/                       ← Pipeline outputs (models, evals)
+├── scripts/                           ← Environment and utility scripts
+│   └── setup_env.ps1
+└── requirements.txt
+```
+
+---
+
+## ⚙️ Environment Setup (Windows)
+
+```powershell
+# 1. Create and activate venv
+powershell -ExecutionPolicy Bypass -File scripts/setup_env.ps1
+
+# 2. Activate later sessions manually
+.\.venv\Scripts\Activate.ps1
+```
+
+This script installs all Python dependencies, clones BirdNET-Analyzer locally under `external/`,  
+and installs this project in editable mode.
+
+---
+
+## 🧩 Base Configuration
+
+Global experiment defaults are stored in [`config/base.yaml`](config/base.yaml).  
+These settings apply to all runs and can be overridden by sweep-specific configs.
+
+Example:
+
+```yaml
+training:
+  epochs: 50
+  batch_size: 32
+training_args:
+  fmin: 0
+  fmax: 15000
+  overlap: 0.0
+  hidden_units: 512
+  dropout: 0.25
+  learning_rate: 0.0005
+  label_smoothing: true
+  mixup: true
+analyzer_args:
+  fmin: 0
+  fmax: 15000
+  overlap: 0.0
+  sensitivity: 1.0
+```
+
+⚠️ *Important:*  
+`fmin`, `fmax`, and `overlap` must match between `training_args` and `analyzer_args`
+to ensure consistent spectrogram processing across training and inference.
+
+---
 
-⚠️ Note: This pipeline is under active development. All experiments are fully reproducible from configs.
+## 🧮 Sweep Specs
 
-Experiment Pipeline Overview
+Tracked sweep definitions live under [`config/sweep_specs/`](config/sweep_specs/).  
+Each spec describes:
+- the **axes** of parameters to vary
+- the **base_params** shared across all configs
+- the **stage number** and output directory
 
-This repository implements a reproducible, config-driven pipeline for training and evaluating custom BirdNET classifiers for CRLF (Rana draytonii) detection.
+Example (`config/sweep_specs/example_sweep.yaml`):
 
-Each experiment is self-contained: given the same input config, the pipeline produces the same training package, model weights, inference results, and evaluation metrics.
+```yaml
+stage: 1
+out_dir: "config/sweeps/example_sweep"
+axes:
+  hidden_units: [0, 128, 512]
+  dropout: [0.0, 0.25]
+  learning_rate: [0.0001, 0.0005, 0.001]
+  batch_size: [16, 32]
+  seed: [123]
+base_params:
+  epochs: 50
+  upsampling_ratio: 0.0
+  mixup: false
+  label_smoothing: false
+  focal_loss: false
+```
 
-Workflow
-1. Training Package Creation
+---
 
-birdnet_custom_classifier_suite/make_training_package.py
-Builds BirdNET-style training folders (RADR/, Negative/) from pre-split data and a manifest.
+## 🚀 Generating Sweeps
 
-Supports filters: quality, call type, site, recorder.
+Run the generator with any sweep spec:
 
-Outputs:
+```powershell
+python -m birdnet_custom_classifier_suite.sweeps.sweep_generator --spec config/sweep_specs/example_sweep.yaml
+```
 
-RADR/, Negative/ folders (copied audio).
+This creates a folder of YAML configs and a manifest CSV under `config/sweeps/<name>/`.
 
-selection_report.json / .txt: summary of what was included.
+---
 
-data_summary.csv: detailed counts by quality, call type, site, and split.
+## 🧠 Running Sweeps
 
-config_used.yaml: exact snapshot of the config used.
+Execute all configs in a sweep folder using the training pipeline:
 
-⚠️ If an experiment folder already exists, the script will stop with a warning to avoid accidental overwrite.
+```powershell
+python -m birdnet_custom_classifier_suite.sweeps.run_sweep config/sweeps/example_sweep --base-config config/base.yaml --verbose
+```
 
-2. Model Training
+Each config will:
+1. Build its training package
+2. Train a BirdNET model
+3. Run inference (IID + OOD)
+4. Evaluate metrics and update the master experiment index
 
-birdnet_custom_classifier_suite/pipeline.py (calls birdnet_analyzer.train)
-Runs BirdNET training on the generated package.
+Outputs appear in `experiments/<experiment_name>/`.
 
-Inputs:
+---
 
-experiments/<name>/training_package/ (RADR/ + Negative/).
+## 📊 Evaluating and Aggregating Results
 
-experiments/<name>/config_used.yaml (exact snapshot of config).
+Once your sweeps finish, use the evaluation toolkit to summarize results:
 
-Outputs into experiments/<name>/model/:
+```powershell
+python -m birdnet_custom_classifier_suite.eval_toolkit.aggregate experiments/ --out stage4sweep.csv
+python -m birdnet_custom_classifier_suite.eval_toolkit.review stage4sweep.csv
+```
 
-model.tflite → trained model weights.
+This produces a combined CSV of all runs and can rank configs by metrics such as  
+`ood.best_f1.f1`, precision, or recall.
 
-training_log.json → log of training/validation metrics.
+---
 
-Any additional artifacts from BirdNET-Analyzer.
+## 🧾 Version Control Recommendations
 
-Config-driven parameters:
+- **Track:**  
+  - `config/base.yaml`  
+  - all `config/sweep_specs/*.yaml`  
+  - `scripts/setup_env.ps1`  
+  - everything inside `birdnet_custom_classifier_suite/`
 
-training: epochs, batch_size, threads, val_split, autotune.
+- **Ignore:**  
+  - generated `config/sweeps/**`  
+  - model and experiment outputs under `experiments/**`  
+  - local audio or dataset files (`AudioData/**`)
 
-training_args: arbitrary BirdNET training CLI flags (e.g., fmin, fmax, overlap).
+---
 
-If autotune: true is set, hyperparameter search is performed.
+## 🧪 Quick Test Sweep
 
-After training, the RADR/ and Negative/ folders are deleted automatically (the exact selection remains reproducible via selection_manifest.csv).
+You can validate your environment with:
 
-3. Inference
+```powershell
+python -m birdnet_custom_classifier_suite.sweeps.sweep_generator --spec config/sweep_specs/test_sweep.yaml
+python -m birdnet_custom_classifier_suite.sweeps.run_sweep config/sweeps/test_sweep --base-config config/base.yaml --verbose
+```
 
-birdnet_custom_classifier_suite/pipeline.py (or birdnet_custom_classifier_suite/run_inference.ps1)
-Applies the trained model to Test-IID and Test-OOD splits.
+This runs a 4-config micro sweep (1 epoch each) to verify your setup end-to-end.
 
-Inputs:
+---
 
-Model (experiments/<name>/model/*.tflite).
+## 🧩 Future Additions
+- Automatic sweep aggregation and leaderboard ranking  
+- YAML validation schema  
+- CLI presets for common stage types (e.g. “Stage 4 Robustness”)  
+- Cross-platform setup scripts (Linux/macOS)
 
-Audio test splits (AudioData/splits/test_iid/, AudioData/splits/test_ood/).
+---
 
-Outputs under experiments/<name>/inference/:
-
-test_iid/BirdNET_CombinedTable.csv
-
-test_ood/BirdNET_CombinedTable.csv
-
-Config-driven parameters:
-
-inference: threads, batch_size, min_conf.
-
-analyzer_args: arbitrary BirdNET inference CLI flags (e.g., fmin, fmax, overlap, sensitivity).
-
-⚠️ Some arguments (e.g., fmin, fmax) should be set consistently for both training and inference. Include them in both training_args and analyzer_args to ensure consistency.
-
-4. Evaluation
-
-birdnet_custom_classifier_suite/evaluate_results.py
-Aggregates inference results, computes metrics across thresholds, and produces breakdowns by quality and call type.
-
-Outputs into experiments/<name>/evaluation/:
-
-metrics_summary.csv → precision, recall, F1, accuracy, FPR, TNR across thresholds.
-
-metrics_by_group.csv → per-group breakdown (quality, call type).
-
-roc_curve_<split>.png → ROC plots (Test-IID and Test-OOD).
-
-pr_curve_<split>.png → Precision-Recall plots.
-
-experiment_summary.json → compact, comparable summary including config, dataset breakdown, metrics, and CLI args used.
-
-5. Master Experiment Index
-
-birdnet_custom_classifier_suite/collect_experiments.py
-Scans all experiments/*/evaluation/experiment_summary.json and merges them into a single CSV (all_experiments.csv).
-
-Deduplicates experiments based on name + commit + timestamp.
-
-Produces a flat, analysis-ready CSV for comparing 100+ runs.
-
-Safe to re-run — only new experiments are added.
-
-6. End-to-End Pipeline
-
-birdnet_custom_classifier_suite/pipeline.py
-Single entry point to run steps 1–5 from a config file:
-
-python -m birdnet_custom_classifier_suite.pipeline --base-config config/base.yaml --override-config config/model01.yaml --verbose
-
-
-This builds the package, trains the model, runs inference on both test splits, evaluates results, and updates the master experiment index.
-
-Artifact Organization
-
-Each experiment is isolated under experiments/:
-
-experiments/model01_highmed/
-    config_used.yaml
-    training_package/
-        RADR/
-        Negative/
-        selection_report.json
-        selection_manifest.csv
-        data_summary.csv
-    model/
-        model.tflite
-        training_log.json
-    inference/
-        test_iid/BirdNET_CombinedTable.csv
-        test_ood/BirdNET_CombinedTable.csv
-    evaluation/
-        metrics_summary.csv
-        metrics_by_group.csv
-        experiment_summary.json
-        roc_curve_test_iid.png
-        pr_curve_test_iid.png
-        roc_curve_test_ood.png
-        pr_curve_test_ood.png
-
-
-This structure makes it easy to:
-
-Run multiple experiments (model01, model02, …).
-
-Compare results directly.
-
-Trace every trained model back to the exact config, manifest, CLI args, and data subset used.
-
-Configuration System
-
-Base config (config/base.yaml): defines defaults for dataset, training, inference, evaluation, and optional passthrough args.
-
-Override configs (config/model01.yaml, etc.): specialize experiments by changing only what’s needed.
-
-Final merged config is always saved into config_used.yaml in each experiment folder.
-
-Sections
-
-training: built-in BirdNET training flags.
-
-training_args: passthrough CLI flags for birdnet_analyzer.train.
-
-inference: built-in analyzer params.
-
-analyzer_args: passthrough CLI flags for birdnet_analyzer.analyze.
-
-⚠️ Keep shared args (e.g., fmin, fmax, overlap) consistent between training_args and analyzer_args.
-
-This ensures reproducibility across machines and time.
+**Maintainer:**  
+Tyler Schwenk  
+BirdNET-CustomClassifierSuite (2025)
