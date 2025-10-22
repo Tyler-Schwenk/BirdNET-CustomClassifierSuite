@@ -1,106 +1,119 @@
 #!/usr/bin/env python3
 """
-Stage 3B + 3C sweep generators
----------------------------------
-3B: upsampling ratio × mode × seed  (42 configs)
-3C: ratio × LR × aug variant × seed  (36 configs total)
+Stage 4 Unified Sweep Generator — Robustness Suite
+---------------------------------------------------
+Full-factorial robustness sweep covering:
+  - Quality levels: ["high"], ["high","medium"], ["high","medium","low"]
+  - Balance: True / False
+  - Upsampling mode: repeat / linear
+  - Upsampling ratio: 0.0 / 0.3 / 0.5
+  - Seeds: 123 / 456 / 789
+
+Generates 3 × 2 × 2 × 3 × 3 = 108 YAML configs
+and a manifest CSV for tracking.
 """
 
 import itertools
 import yaml
+import csv
 from pathlib import Path
 
-# ---- Fixed anchors from Stage 2 best ----
+# ---- Fixed anchors ----
 HIDDEN_UNITS = 512
 DROPOUT = 0.25
 BATCH_SIZE = 32
+LEARNING_RATE = 0.0005
 FOCAL_LOSS = False
-
-# ---- Common seeds ----
+LABEL_SMOOTHING = True
+MIXUP = True
 SEEDS = [123, 456, 789]
 
-# ============================================================
-#  Stage 3B — Upsampling refinement (ratios 0.20–0.60)
-# ============================================================
-upsampling_ratios_3b = [0.20, 0.30, 0.40, 0.45, 0.50, 0.55, 0.60]
-upsampling_modes_3b = ["repeat", "linear"]
-
-LEARNING_RATE_3B = 0.0005
-LABEL_SMOOTHING_3B = True
-MIXUP_3B = True
-
-outdir_3b = Path("config/sweeps/stage3b")
-outdir_3b.mkdir(parents=True, exist_ok=True)
-
-count = 0
-for ratio, mode, seed in itertools.product(upsampling_ratios_3b, upsampling_modes_3b, SEEDS):
-    count += 1
-    cfg = {
-        "experiment": {"name": f"stage3b_{count:03d}", "seed": seed},
-        "training": {"batch_size": BATCH_SIZE},
-        "inference": {"batch_size": BATCH_SIZE},
-        "training_args": {
-            "hidden_units": HIDDEN_UNITS,
-            "dropout": DROPOUT,
-            "learning_rate": LEARNING_RATE_3B,
-            "label_smoothing": LABEL_SMOOTHING_3B,
-            "mixup": MIXUP_3B,
-            "focal-loss": FOCAL_LOSS,
-            "focal-loss-gamma": 2.0 if FOCAL_LOSS else 0.0,
-            "focal-loss-alpha": 0.25 if FOCAL_LOSS else 0.0,
-            "upsampling_ratio": ratio,
-            "upsampling_mode": mode,
-        },
-    }
-
-    outpath = outdir_3b / f"{cfg['experiment']['name']}.yaml"
-    with open(outpath, "w") as f:
-        yaml.safe_dump(cfg, f, sort_keys=False)
-
-print(f"✅ Generated {count} Stage 3B configs in {outdir_3b.resolve()}")
-
-# ============================================================
-#  Stage 3C — LR × upsampling × augmentation variant
-# ============================================================
-upsampling_ratios_3c = [0.45, 0.50, 0.55]
-upsampling_modes_3c = ["linear"]
-learning_rates_3c = [0.0005, 0.001]
-aug_profiles = [
-    {"name": "augA", "label_smoothing": True, "mixup": True},   # Stage 3 base
-    {"name": "augB", "label_smoothing": True, "mixup": False},  # Stage 2 top
+# ---- Sweep axes ----
+QUALITIES = [
+    ["high"],
+    ["high", "medium"],
+    ["high", "medium", "low"],
 ]
+BALANCES = [True, False]
+UPSAMPLING_MODES = ["repeat", "linear"]
+UPSAMPLING_RATIOS = [0.0, 0.3, 0.5]
 
-outdir_3c = Path("config/sweeps/stage3c")
-outdir_3c.mkdir(parents=True, exist_ok=True)
+# ---- Output paths ----
+ROOT = Path("config/sweeps/stage4_unified")
+ROOT.mkdir(parents=True, exist_ok=True)
+MANIFEST_PATH = ROOT / "manifest.csv"
 
-count = 0
-for ratio, lr, aug, seed in itertools.product(
-    upsampling_ratios_3c, learning_rates_3c, aug_profiles, SEEDS
-):
-    count += 1
+# ============================================================
+# Helper for writing individual config YAMLs
+# ============================================================
+def write_cfg(idx, params):
     cfg = {
         "experiment": {
-            "name": f"stage3c_{aug['name']}_{count:03d}",
-            "seed": seed,
+            "name": f"stage4_{idx:03d}",
+            "seed": params["seed"],
         },
         "training": {"batch_size": BATCH_SIZE},
         "inference": {"batch_size": BATCH_SIZE},
+        "training_package": {
+            "include_negatives": True,
+            "balance": params["balance"],
+            "quality": params["quality"],
+        },
         "training_args": {
             "hidden_units": HIDDEN_UNITS,
             "dropout": DROPOUT,
-            "learning_rate": lr,
-            "label_smoothing": aug["label_smoothing"],
-            "mixup": aug["mixup"],
+            "learning_rate": LEARNING_RATE,
+            "label_smoothing": LABEL_SMOOTHING,
+            "mixup": MIXUP,
             "focal-loss": FOCAL_LOSS,
             "focal-loss-gamma": 2.0 if FOCAL_LOSS else 0.0,
             "focal-loss-alpha": 0.25 if FOCAL_LOSS else 0.0,
-            "upsampling_ratio": ratio,
-            "upsampling_mode": "linear",
+            "upsampling_mode": params["upsampling_mode"],
+            "upsampling_ratio": params["upsampling_ratio"],
         },
     }
 
-    outpath = outdir_3c / f"{cfg['experiment']['name']}.yaml"
+    outpath = ROOT / f"{cfg['experiment']['name']}.yaml"
     with open(outpath, "w") as f:
         yaml.safe_dump(cfg, f, sort_keys=False)
 
-print(f"✅ Generated {count} Stage 3C configs in {outdir_3c.resolve()}")
+    return {
+        "name": cfg["experiment"]["name"],
+        "seed": params["seed"],
+        "quality": ",".join(params["quality"]),
+        "balance": params["balance"],
+        "mode": params["upsampling_mode"],
+        "ratio": params["upsampling_ratio"],
+    }
+
+# ============================================================
+# Generate full factorial sweep
+# ============================================================
+manifest = []
+idx = 0
+for quality, balance, mode, ratio, seed in itertools.product(
+    QUALITIES, BALANCES, UPSAMPLING_MODES, UPSAMPLING_RATIOS, SEEDS
+):
+    idx += 1
+    entry = write_cfg(idx, {
+        "quality": quality,
+        "balance": balance,
+        "upsampling_mode": mode,
+        "upsampling_ratio": ratio,
+        "seed": seed,
+    })
+    manifest.append(entry)
+
+# ============================================================
+# Write manifest CSV
+# ============================================================
+with open(MANIFEST_PATH, "w", newline="") as f:
+    writer = csv.DictWriter(
+        f,
+        fieldnames=["name", "seed", "quality", "balance", "mode", "ratio"],
+    )
+    writer.writeheader()
+    writer.writerows(manifest)
+
+print(f"✅ Generated {idx} Stage 4 unified configs in {ROOT.resolve()}")
+print(f"🧾 Manifest written to: {MANIFEST_PATH.resolve()}")

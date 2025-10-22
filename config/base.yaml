@@ -1,0 +1,58 @@
+# ===========================================================
+# Stage 4 Base Configuration — Robustness Suite
+# -----------------------------------------------------------
+# Anchors all training hyperparameters while allowing dataset
+# quality, balance, and upsampling parameters to vary.
+# ===========================================================
+
+dataset:
+  audio_root: "AudioData"
+  manifest: "data/manifest.csv"
+
+experiment:
+  name: "stage4_base"
+  seed: 123
+
+training_package:
+  include_negatives: true
+  balance: true                    # overridden per sweep (true/false)
+  max_per_class: null
+  quality: ["high", "medium"]      # overridden per sweep
+  call_type: ["grunt", "growl", "both"]
+
+training:
+  epochs: 50
+  batch_size: 32
+  threads: 4
+  val_split: 0.2
+  autotune: false
+
+inference:
+  batch_size: 32
+  threads: 4
+  min_conf: 0.5
+
+evaluation:
+  thresholds: [0.5]
+  output_dir: "evaluation"
+
+training_args:
+  fmin: 0
+  fmax: 15000
+  overlap: 0.0
+  dropout: 0.25
+  hidden_units: 512
+  learning_rate: 0.0005
+  focal-loss: false
+  focal-loss-gamma: 2.0
+  focal-loss-alpha: 0.25
+  label_smoothing: true
+  mixup: true
+  upsampling_mode: "repeat"        # overridden per sweep
+  upsampling_ratio: 0.0            # overridden per sweep
+
+analyzer_args:
+  fmin: 0
+  fmax: 15000
+  overlap: 0.0
+  sensitivity: 1.0
