@@ -1,0 +1,28 @@
+[project]
+name = "birdnet-frog-training"
+version = "0.1.0"
+description = "Custom BirdNET training pipeline for CRLF acoustic models."
+authors = [{ name = "Tyler Schwenk" }]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "tensorflow==2.15.1",
+    "keras==2.15.0",
+    "keras-tuner",
+    "soundfile",
+    "librosa",
+    "pyyaml",
+    "pandas",
+    "numpy",
+    "tqdm",
+    "matplotlib",
+]
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["birdnet_frog_training*"]
+exclude = ["data*", "config*", "external*", "AudioData*", "experiments*"]

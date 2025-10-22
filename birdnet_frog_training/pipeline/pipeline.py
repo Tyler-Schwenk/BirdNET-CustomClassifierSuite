@@ -1,4 +1,4 @@
-# scripts/pipeline/pipeline.py
+# birdnet_frog_training/pipeline/pipeline.py
 """
 BirdNET Frog Training Pipeline
 - Matches sweep behavior exactly
@@ -11,10 +11,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-from utils.config import load_config
-import scripts.pipeline.make_training_package as make_training_package
-import scripts.pipeline.collect_experiments as collect_experiments
-import scripts.pipeline.evaluate_results as evaluate_results
+from birdnet_frog_training.utils.config import load_config
+from birdnet_frog_training.pipeline import make_training_package, collect_experiments, evaluate_results
 import shutil
 import subprocess
 import sys

@@ -11,7 +11,7 @@ Each experiment is self-contained: given the same input config, the pipeline pro
 Workflow
 1. Training Package Creation
 
-scripts/make_training_package.py
+birdnet_frog_training/make_training_package.py
 Builds BirdNET-style training folders (RADR/, Negative/) from pre-split data and a manifest.
 
 Supports filters: quality, call type, site, recorder.
@@ -30,7 +30,7 @@ config_used.yaml: exact snapshot of the config used.
 
 2. Model Training
 
-scripts/pipeline.py (calls birdnet_analyzer.train)
+birdnet_frog_training/pipeline.py (calls birdnet_analyzer.train)
 Runs BirdNET training on the generated package.
 
 Inputs:
@@ -59,7 +59,7 @@ After training, the RADR/ and Negative/ folders are deleted automatically (the e
 
 3. Inference
 
-scripts/pipeline.py (or scripts/run_inference.ps1)
+birdnet_frog_training/pipeline.py (or birdnet_frog_training/run_inference.ps1)
 Applies the trained model to Test-IID and Test-OOD splits.
 
 Inputs:
@@ -84,7 +84,7 @@ analyzer_args: arbitrary BirdNET inference CLI flags (e.g., fmin, fmax, overlap,
 
 4. Evaluation
 
-scripts/evaluate_results.py
+birdnet_frog_training/evaluate_results.py
 Aggregates inference results, computes metrics across thresholds, and produces breakdowns by quality and call type.
 
 Outputs into experiments/<name>/evaluation/:
@@ -101,7 +101,7 @@ experiment_summary.json → compact, comparable summary including config, datase
 
 5. Master Experiment Index
 
-scripts/collect_experiments.py
+birdnet_frog_training/collect_experiments.py
 Scans all experiments/*/evaluation/experiment_summary.json and merges them into a single CSV (all_experiments.csv).
 
 Deduplicates experiments based on name + commit + timestamp.
@@ -112,10 +112,10 @@ Safe to re-run — only new experiments are added.
 
 6. End-to-End Pipeline
 
-scripts/pipeline.py
+birdnet_frog_training/pipeline.py
 Single entry point to run steps 1–5 from a config file:
 
-python -m scripts.pipeline --base-config config/base.yaml --override-config config/model01.yaml --verbose
+python -m birdnet_frog_training.pipeline --base-config config/base.yaml --override-config config/model01.yaml --verbose
 
 
 This builds the package, trains the model, runs inference on both test splits, evaluates results, and updates the master experiment index.

@@ -1,4 +1,4 @@
-# scripts/make_training_package.py
+# birdnet_frog_training/pipeline/make_training_package.py
 """
 Build a BirdNET-style training package from split folders + manifest.
 - Uses config (YAML/JSON) for parameters.

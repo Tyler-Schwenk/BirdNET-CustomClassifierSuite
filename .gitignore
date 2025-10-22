@@ -14,17 +14,15 @@ __pycache__/
 *.swp
 *.bak
 
+# Keep base.yaml
+!config/base.yaml
+
 # --- Configs ---
+config/
 # Ignore all YAML files recursively
 config/**/*.yaml
 config/**/*.yml
 config/*
-
-# Keep base.yaml
-!config/base.yaml
-
-# Keep everything under sweeps
-!config/sweeps/**/*.yaml
 
 # --- Models & weights ---
 *.tflite

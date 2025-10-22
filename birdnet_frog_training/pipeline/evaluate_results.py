@@ -1,4 +1,4 @@
-# scripts/evaluate_results.py
+# birdnet_frog_training/pipeline//evaluate_results.py
 import os
 import pandas as pd
 import numpy as np

@@ -1,4 +1,4 @@
-# scripts/run_inference.ps1
+# birdnet_frog_training/pipeline/run_inference.ps1
 param(
     [string]$CONFIG = "config/base.yaml"
 )

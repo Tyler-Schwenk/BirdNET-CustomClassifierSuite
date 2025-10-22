@@ -1,10 +1,10 @@
-# scripts/run_sweep.py
+# birdnet_frog_training/sweeps/run_sweep.py
 """
 Run a batch of experiment configs through the BirdNET Frog Training pipeline.
 
 Usage:
-    python -m scripts.run_sweep config/sweeps/
-    python -m scripts.run_sweep config/sweeps/ --verbose
+    python -m run_sweep config/sweeps/
+    python -m run_sweep config/sweeps/ --verbose
 
     
 
@@ -31,7 +31,7 @@ def get_experiment_name(config_path: Path) -> str:
 def run_pipeline(config: Path, base_config: Path, verbose: bool = False) -> bool:
     """Run pipeline.py for a single config. Returns True if successful."""
     cmd = [
-        sys.executable, "-m", "scripts.pipeline.pipeline",
+        sys.executable, "-m", "pipeline.pipeline",
         "--base-config", str(base_config),
         "--override-config", str(config),
     ]

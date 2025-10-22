@@ -1,26 +1,25 @@
 # setup_env.ps1
-# Bootstraps a BirdNET-Analyzer dev/training environment on Windows
+# Bootstraps BirdNET Frog Training environment on Windows
 
-# Path to Python 3.11 interpreter
-$PYTHON = "D:\Python311\python.exe"
+$PYTHON      = "D:\Python311\python.exe"
+$VENV_PATH   = ".venv"
+$REQ_FILE    = "requirements.txt"
+$BIRDNET_DIR = "external\BirdNET-Analyzer"
 
-# Create venv if not exists
-if (!(Test-Path ".venv")) {
-    & $PYTHON -m venv .venv
+if (!(Test-Path $VENV_PATH)) {
+    & $PYTHON -m venv $VENV_PATH
 }
+& .\$VENV_PATH\Scripts\Activate.ps1
 
-# Activate venv
-& .\.venv\Scripts\Activate.ps1
-
-# Upgrade basics
 python -m pip install --upgrade pip setuptools wheel
 
-# Clone BirdNET-Analyzer if missing
-if (!(Test-Path "external\BirdNET-Analyzer")) {
-    git clone https://github.com/kahst/BirdNET-Analyzer.git external/BirdNET-Analyzer
+if (!(Test-Path $BIRDNET_DIR)) {
+    git clone https://github.com/kahst/BirdNET-Analyzer.git $BIRDNET_DIR
+} else {
+    Write-Host "BirdNET-Analyzer already present."
 }
 
-# Install everything from requirements.txt (handles BirdNET + pins + extras)
-pip install -r requirements.txt
+pip install -r $REQ_FILE
+pip install -e .
 
-Write-Host "`nEnvironment setup complete. Activate with: .\.venv\Scripts\Activate.ps1"
+Write-Host "`nEnvironment setup complete. Activate later with: .\$VENV_PATH\Scripts\Activate.ps1"
