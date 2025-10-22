@@ -1,7 +1,7 @@
 [project]
-name = "birdnet-frog-training"
+name = "birdnet-custom-classifier-suite"
 version = "0.1.0"
-description = "Custom BirdNET training pipeline for CRLF acoustic models."
+description = "Extended BirdNET training, inference, and evaluation suite for custom classifiers."
 authors = [{ name = "Tyler Schwenk" }]
 readme = "README.md"
 requires-python = ">=3.10"
@@ -24,5 +24,5 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["birdnet_frog_training*"]
+include = ["birdnet_custom_classifier_suite*"]
 exclude = ["data*", "config*", "external*", "AudioData*", "experiments*"]

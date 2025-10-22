@@ -1,15 +1,21 @@
 # setup_env.ps1
-# Bootstraps BirdNET Frog Training environment on Windows
+# Bootstraps BirdNET-CustomClassifierSuite environment on Windows
 
 $PYTHON      = "D:\Python311\python.exe"
 $VENV_PATH   = ".venv"
 $REQ_FILE    = "requirements.txt"
 $BIRDNET_DIR = "external\BirdNET-Analyzer"
 
-if (!(Test-Path $VENV_PATH)) {
+# --- Create virtual environment if missing ---
+if (!(Test-Path "$VENV_PATH\Scripts\Activate.ps1")) {
     & $PYTHON -m venv $VENV_PATH
+    Write-Host "Created new virtual environment at $VENV_PATH"
 }
-& .\$VENV_PATH\Scripts\Activate.ps1
+
+# --- Activate venv in current session ---
+& "$VENV_PATH\Scripts\Activate.ps1"
+Write-Host "Activated virtual environment."
+
 
 python -m pip install --upgrade pip setuptools wheel
 

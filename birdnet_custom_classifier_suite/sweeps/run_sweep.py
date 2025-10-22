@@ -1,4 +1,4 @@
-# birdnet_frog_training/sweeps/run_sweep.py
+# birdnet_custom_classifier_suite/sweeps/run_sweep.py
 """
 Run a batch of experiment configs through the BirdNET Frog Training pipeline.
 

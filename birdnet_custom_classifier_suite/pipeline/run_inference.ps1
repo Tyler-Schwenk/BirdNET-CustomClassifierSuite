@@ -1,4 +1,4 @@
-# birdnet_frog_training/pipeline/run_inference.ps1
+# birdnet_custom_classifier_suite/pipeline/run_inference.ps1
 param(
     [string]$CONFIG = "config/base.yaml"
 )
