@@ -14,8 +14,8 @@ __pycache__/
 *.swp
 *.bak
 
-# Keep base.yaml
-!config/base.yaml
+# Keep example.yaml
+!config/example.yaml
 
 # --- Configs ---
 config/

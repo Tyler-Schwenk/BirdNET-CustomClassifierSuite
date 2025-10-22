@@ -1,0 +1,84 @@
+# ===========================================================
+# BirdNET-CustomClassifierSuite — Base Configuration
+# -----------------------------------------------------------
+# This file defines global defaults for all experiments.
+# Each sweep or stage-specific override YAML will layer
+# on top of this via `--override-config`.
+#
+# ⚠️ IMPORTANT:
+# Some arguments (e.g. fmin, fmax, overlap) affect how the
+# spectrograms are computed. These MUST match between
+# training_args and analyzer_args to ensure feature parity
+# between training and inference.
+# ===========================================================
+
+dataset:
+  audio_root: "AudioData"
+  manifest: "data/manifest.csv"
+
+experiment:
+  name: "base_experiment"
+  seed: 123
+
+training_package:
+  include_negatives: true
+  balance: true
+  max_per_class: null
+  quality: ["high", "medium", "low"]
+  call_type: ["grunt", "growl", "both"]
+
+training:
+  epochs: 50
+  batch_size: 32
+  threads: 4
+  val_split: 0.2
+  autotune: false
+
+inference:
+  batch_size: 32
+  threads: 4
+  min_conf: 0.5
+
+evaluation:
+  thresholds: [0.5]
+  output_dir: "evaluation"
+
+training_args:
+  # ========================================================
+  # Core spectral and temporal parameters — must match inference
+  # ========================================================
+  fmin: 0
+  fmax: 15000
+  overlap: 0.0
+
+  # ========================================================
+  # Model capacity and learning dynamics
+  # ========================================================
+  hidden_units: 512
+  dropout: 0.25
+  learning_rate: 0.0005
+
+  # ========================================================
+  # Regularization and augmentation
+  # ========================================================
+  focal-loss: false
+  focal-loss-gamma: 2.0
+  focal-loss-alpha: 0.25
+  label_smoothing: true
+  mixup: true
+
+  # ========================================================
+  # Data balancing and upsampling
+  # ========================================================
+  upsampling_mode: "repeat"
+  upsampling_ratio: 0.0
+
+# ============================================================
+# Analyzer arguments — must mirror relevant training_args
+# to ensure spectrogram processing consistency.
+# ============================================================
+analyzer_args:
+  fmin: 0
+  fmax: 15000
+  overlap: 0.0
+  sensitivity: 1.0
