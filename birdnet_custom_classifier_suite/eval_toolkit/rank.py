@@ -1,39 +1,177 @@
+#!/usr/bin/env python3
+"""
+rank.py
 
-from typing import List, Tuple
+Ranking utilities for experiment configurations.
+
+Works with summarized experiment data (mean/std across seeds)
+to identify top-performing configurations based on:
+  - primary metric (e.g., OOD F1)
+  - precision-priority ranking
+  - recall floor enforcement
+  - combined stability score (mean vs std)
+"""
+
 import pandas as pd
 
-# Why: Keep ranking small and composable so it can be swapped easily.
-def _safe_sort(df: pd.DataFrame, key: str, ascending: bool) -> pd.DataFrame:
-    if key not in df.columns:
-        return df.copy()
-    return df.sort_values(key, ascending=ascending, kind="mergesort")
 
-def _col_for(metric: str, stat: str) -> str:
-    # metric must match original column name; agg appended ".mean" and ".std"
-    return f"{metric}.{stat}"
+# ------------------------- Core Ranking ------------------------- #
 
-def rank_by_metric(agg_df: pd.DataFrame, metric: str, top_k: int) -> pd.DataFrame:
-    key = _col_for(metric, "mean")
-    ranked = _safe_sort(agg_df, key, ascending=False).head(top_k).copy()
-    # Keep std next to mean if available
-    std_col = _col_for(metric, "std")
-    if std_col in ranked.columns:
-        ranked = ranked[["_config_sig", key, std_col] + [c for c in ranked.columns if c not in {"_config_sig", key, std_col}]]
+def rank_configs(
+    df: pd.DataFrame,
+    metric: str,
+    ascending: bool = False,
+    top_n: int | None = None,
+    stability_weight: float = 0.0,
+):
+    """
+    Rank configurations by metric mean (and optionally penalize std).
+    Example:
+        rank_configs(df, metric="ood.best_f1.f1", stability_weight=0.5)
+    """
+    # Normalize metric name to canonical 'metrics.' prefix
+    if not metric.startswith("metrics."):
+        metric = f"metrics.{metric}"
+
+    mean_col = f"{metric}_mean"
+    std_col = f"{metric}_std"
+
+    if mean_col not in df.columns:
+        raise KeyError(f"Missing metric mean column: {mean_col}")
+
+    ranked = df.copy()
+    if stability_weight > 0 and std_col in df.columns:
+        ranked["score"] = ranked[mean_col] - stability_weight * ranked[std_col]
+    else:
+        ranked["score"] = ranked[mean_col]
+
+    ranked = ranked.sort_values("score", ascending=ascending).reset_index(drop=True)
+    if top_n:
+        ranked = ranked.head(top_n)
     return ranked
 
-def extract_best_run_details(df: pd.DataFrame, config_sig: str, metric: str, precision_metric: str, recall_metric: str) -> pd.Series:
-    cand = df[df["_config_sig"] == config_sig].copy()
-    if cand.empty:
-        return pd.Series()
-    # pick the run with max metric value
-    if metric not in cand.columns:
-        # Nothing to pick from; return empty for clarity.
-        return pd.Series()
-    idx = cand[metric].idxmax()
-    row = cand.loc[idx]
-    out = pd.Series({
-        "best_run_metric": row.get(metric, float("nan")),
-        "best_run_precision": row.get(precision_metric, float("nan")),
-        "best_run_recall": row.get(recall_metric, float("nan")),
-    })
-    return out
+
+# ------------------------- Precision-Priority ------------------------- #
+
+def rank_precision_priority(
+    df: pd.DataFrame,
+    precision_col: str = "ood.best_f1.precision_mean",
+    recall_col: str = "ood.best_f1.recall_mean",
+    precision_floor: float = 0.9,
+):
+    """
+    Rank configs prioritizing precision ≥ floor, then by recall descending.
+    Returns only configs meeting the precision criterion.
+    """
+    # Normalize to canonical metric names
+    if not precision_col.startswith("metrics."):
+        precision_col = f"metrics.{precision_col}"
+    if not recall_col.startswith("metrics."):
+        recall_col = f"metrics.{recall_col}"
+
+    if precision_col not in df.columns or recall_col not in df.columns:
+        raise KeyError(f"Missing precision or recall columns: {precision_col}, {recall_col}")
+
+    filtered = df[df[precision_col] >= precision_floor].copy()
+    if filtered.empty:
+        print(f"No configs meet precision ≥ {precision_floor}")
+        return pd.DataFrame()
+
+    ranked = filtered.sort_values(
+        by=[precision_col, recall_col],
+        ascending=[False, False]
+    ).reset_index(drop=True)
+    return ranked
+
+
+# ------------------------- F1 at Precision Floor ------------------------- #
+
+def hp_f1_at_precision_floor(
+    df: pd.DataFrame,
+    precision_col: str = "ood.best_f1.precision_mean",
+    recall_col: str = "ood.best_f1.recall_mean",
+    f1_col: str = "ood.best_f1.f1_mean",
+    precision_floor: float = 0.9,
+):
+    """
+    Returns the highest-F1 config among those meeting a precision floor.
+    If none meet it, returns empty DataFrame.
+    """
+    # Normalize to canonical metric names for f1/precision/recall
+    if not precision_col.startswith("metrics."):
+        precision_col = f"metrics.{precision_col}"
+    if not recall_col.startswith("metrics."):
+        recall_col = f"metrics.{recall_col}"
+    if not f1_col.startswith("metrics."):
+        f1_col = f"metrics.{f1_col}"
+
+    if any(col not in df.columns for col in (precision_col, recall_col, f1_col)):
+        raise KeyError("Missing one or more metric columns (expected metrics.* prefixed names)")
+
+    eligible = df[df[precision_col] >= precision_floor].copy()
+    if eligible.empty:
+        print(f"No configs reach precision ≥ {precision_floor}")
+        return pd.DataFrame()
+
+    top = eligible.sort_values(f1_col, ascending=False).head(1).reset_index(drop=True)
+    return top
+
+
+# ------------------------- Stability Analysis ------------------------- #
+
+def compute_stability(df: pd.DataFrame, metric_prefix: str = "ood.best_f1"):
+    """
+    Adds stability metrics to a summarized DataFrame:
+      - coefficient of variation (std / mean)
+      - inverse stability score (1 / CV)
+    """
+    df = df.copy()
+    # Accept prefixes with or without 'metrics.'
+    prefixes = [metric_prefix]
+    if not metric_prefix.startswith("metrics."):
+        prefixes.insert(0, f"metrics.{metric_prefix}")
+
+    for col in [c for c in df.columns if any(c.startswith(p) for p in prefixes) and c.endswith("_mean")]:
+        base = col.replace("_mean", "")
+        std_col = f"{base}_std"
+        if std_col in df.columns:
+            cv_col = f"{base}_cv"
+            inv_col = f"{base}_stability"
+            df[cv_col] = df[std_col] / df[col]
+            df[inv_col] = 1.0 / df[cv_col].replace(0, pd.NA)
+    return df
+
+
+# ------------------------- Combined Ranking ------------------------- #
+
+def combined_rank(
+    df: pd.DataFrame,
+    metric: str = "ood.best_f1.f1",
+    precision_floor: float = 0.9,
+    stability_weight: float = 0.2,
+):
+    """
+    Combined ranking heuristic:
+      - Filters configs meeting precision floor
+      - Scores by mean F1 minus stability_weight * std
+      - Returns sorted table
+    """
+    # Normalize metric and dependent precision column
+    if not metric.startswith("metrics."):
+        metric = f"metrics.{metric}"
+
+    mean_col = f"{metric}_mean"
+    std_col = f"{metric}_std"
+    prec_col = f"{metric.rsplit('.', 1)[0]}.precision_mean"
+
+    if mean_col not in df.columns or prec_col not in df.columns:
+        raise KeyError(f"Missing required mean or precision columns: {mean_col}, {prec_col}")
+
+    eligible = df[df[prec_col] >= precision_floor].copy()
+    if eligible.empty:
+        print(f"No configs meet precision ≥ {precision_floor}")
+        return pd.DataFrame()
+
+    eligible["score"] = eligible[mean_col] - stability_weight * eligible.get(std_col, 0)
+    ranked = eligible.sort_values("score", ascending=False).reset_index(drop=True)
+    return ranked
