@@ -21,11 +21,19 @@ def pick_config_columns(df: pd.DataFrame) -> List[str]:
     # Drop metrics and metadata, keep config-level keys
     # Always ignore any flattened 'metrics.' prefix and legacy iid/ood prefixes
     ignore_prefixes = ["metrics.", "iid.", "ood.", "metadata.", "experiment.", "__"]
-    config_cols = [
-        c for c in df.columns
-        if not any(c.startswith(pref) for pref in ignore_prefixes)
-    ]
-    return config_cols
+
+    # Start with columns that don't look like metrics/metadata
+    config_cols = [c for c in df.columns if not any(c.startswith(pref) for pref in ignore_prefixes)]
+
+    # Exclude any column that encodes a random seed or run-unique identifier.
+    # These often appear as 'seed' fields (e.g. 'experiment.seed' or 'dataset.filters.seed')
+    # and should not be part of the configuration signature.
+    def is_seed_col(col: str) -> bool:
+        parts = col.split('.')
+        return any(p.lower() == 'seed' for p in parts)
+
+    final_cols = [c for c in config_cols if not is_seed_col(c)]
+    return final_cols
 
 
 def build_config_signature(row: pd.Series, config_cols: List[str]) -> str:

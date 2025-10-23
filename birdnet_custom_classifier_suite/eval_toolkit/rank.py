@@ -146,32 +146,39 @@ def compute_stability(df: pd.DataFrame, metric_prefix: str = "ood.best_f1"):
 
 def combined_rank(
     df: pd.DataFrame,
-    metric: str = "ood.best_f1.f1",
-    precision_floor: float = 0.9,
+    metric: str = "metrics.ood.best_f1.f1",  # Base metric name without _mean
+    precision_floor: float = None,
     stability_weight: float = 0.2,
 ):
     """
-    Combined ranking heuristic:
-      - Filters configs meeting precision floor
-      - Scores by mean F1 minus stability_weight * std
+    Combined ranking heuristic that uses pre-computed mean columns:
+      - Optionally filters by precision floor (if provided)
+      - Scores by F1 mean minus stability_weight * std
       - Returns sorted table
+    
+    Note: Expects metrics to already have _mean/_std suffixes
     """
-    # Normalize metric and dependent precision column
-    if not metric.startswith("metrics."):
-        metric = f"metrics.{metric}"
+    # Always work with mean column names
+    mean_col = f"{metric}_mean" if not metric.endswith("_mean") else metric
+    std_col = mean_col.replace("_mean", "_std")
+    prec_mean = mean_col.replace("f1_mean", "precision_mean")
 
-    mean_col = f"{metric}_mean"
-    std_col = f"{metric}_std"
-    prec_col = f"{metric.rsplit('.', 1)[0]}.precision_mean"
+    if mean_col not in df.columns:
+        raise KeyError(f"Missing required metric column: {mean_col}")
 
-    if mean_col not in df.columns or prec_col not in df.columns:
-        raise KeyError(f"Missing required mean or precision columns: {mean_col}, {prec_col}")
+    eligible = df.copy()
+    if precision_floor is not None and precision_floor > 0:
+        if prec_mean not in df.columns:
+            raise KeyError(f"Missing precision column: {prec_mean}")
+        eligible = df[df[prec_mean] >= precision_floor].copy()
+        if eligible.empty:
+            print(f"No configs meet precision ≥ {precision_floor}")
+            return pd.DataFrame()
 
-    eligible = df[df[prec_col] >= precision_floor].copy()
-    if eligible.empty:
-        print(f"No configs meet precision ≥ {precision_floor}")
-        return pd.DataFrame()
-
-    eligible["score"] = eligible[mean_col] - stability_weight * eligible.get(std_col, 0)
+    # Score using the mean and optionally penalize by std
+    eligible["score"] = eligible[mean_col]
+    if stability_weight > 0 and std_col in eligible.columns:
+        eligible["score"] -= stability_weight * eligible[std_col]
+        
     ranked = eligible.sort_values("score", ascending=False).reset_index(drop=True)
     return ranked

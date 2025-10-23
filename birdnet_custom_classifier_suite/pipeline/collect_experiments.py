@@ -62,9 +62,16 @@ def collect_experiments(exp_root: str, out_csv: str = "results/all_experiments.c
     if out_path.exists():
         df_old = pd.read_csv(out_path)
         df_combined = pd.concat([df_old, df_new], ignore_index=True)
-        df_combined = df_combined.drop_duplicates(subset=key_cols, keep="last")
+        if key_cols:
+            df_combined = df_combined.drop_duplicates(subset=key_cols, keep="last")
+        else:
+            # No keys available; just drop exact duplicate rows
+            df_combined = df_combined.drop_duplicates(keep="last")
     else:
-        df_combined = df_new.drop_duplicates(subset=key_cols, keep="last")
+        if key_cols:
+            df_combined = df_new.drop_duplicates(subset=key_cols, keep="last")
+        else:
+            df_combined = df_new.drop_duplicates(keep="last")
 
     df_combined.to_csv(out_path, index=False)
     print(f"Wrote {len(df_combined)} experiments to {out_path.resolve()}")

@@ -27,41 +27,38 @@ def format_metric(mean, std, precision=3):
 
 def format_leaderboard(df: pd.DataFrame, metric_prefix="ood.best_f1"):
     """Return a compact leaderboard table (DataFrame) for Markdown export.
-
-    The `metric_prefix` may be passed without the leading 'metrics.'; the helper
-    will normalize to the canonical 'metrics.' prefixed column names.
+    Shows F1/precision/recall means and standard deviations, sorted by F1.
     """
     if not metric_prefix.startswith("metrics."):
         metric_prefix = f"metrics.{metric_prefix}"
 
-    cols = [
-        "__signature",
-        f"{metric_prefix}.f1_mean",
-        f"{metric_prefix}.f1_std",
-        f"{metric_prefix}.precision_mean",
-        f"{metric_prefix}.recall_mean",
-    ]
-    available = [c for c in cols if c in df.columns]
-    if not available:
-        raise ValueError(f"No columns found for prefix: {metric_prefix}")
+    # Start with essential columns
+    tbl = df.copy().sort_values(f"{metric_prefix}.f1_mean", ascending=False).reset_index(drop=True)
+    out = pd.DataFrame()
 
-    tbl = df.copy()[available].copy()
-    if f"{metric_prefix}.f1_mean" in tbl and f"{metric_prefix}.f1_std" in tbl:
-        tbl["F1 (mean ± std)"] = [
-            format_metric(m, s)
-            for m, s in zip(tbl[f"{metric_prefix}.f1_mean"], tbl[f"{metric_prefix}.f1_std"])
-        ]
-        tbl.drop(columns=[f"{metric_prefix}.f1_mean", f"{metric_prefix}.f1_std"], inplace=True)
+    # Config info
+    out["Config"] = tbl["__signature"]
+    out["experiment.names"] = tbl["experiment.names"]
 
-    tbl.rename(
-        columns={
-            "__signature": "Config",
-            f"{metric_prefix}.precision_mean": "Precision",
-            f"{metric_prefix}.recall_mean": "Recall",
-        },
-        inplace=True,
-    )
-    return tbl
+    # Core metrics with mean ± std
+    metrics = ["precision", "recall", "f1"]
+    for m in metrics:
+        mean_col = f"{metric_prefix}.{m}_mean"
+        std_col = f"{metric_prefix}.{m}_std"
+        
+        means = tbl[mean_col]
+        stds = tbl[std_col] if std_col in tbl.columns else None
+
+        out[m.capitalize()] = [format_metric(mean, std) for mean, std in zip(means, stds)]
+        
+        # Store numeric versions for sorting
+        out[f"{m}_mean"] = means
+
+    # Sort by F1 mean descending
+    out = out.sort_values("f1_mean", ascending=False).reset_index(drop=True)
+    out.drop(columns=[f"{m}_mean" for m in metrics], inplace=True)
+
+    return out
 
 
 # ------------------------- Markdown Export ------------------------- #
@@ -104,6 +101,13 @@ def save_reports(df: pd.DataFrame, out_dir: str, name: str, title: str = None, m
     out_dir.mkdir(parents=True, exist_ok=True)
     md_path = out_dir / f"{name}.md"
     csv_path = out_dir / f"{name}.csv"
+    raw_csv_path = out_dir / f"{name}.raw.csv"
 
+    # Create a formatted leaderboard (strings rounded/mean ± std) for human-friendly outputs
+    formatted = format_leaderboard(df, metric_prefix=metric_prefix)
+
+    # Save markdown from the numeric df (save_markdown will call format_leaderboard internally)
     save_markdown(df, md_path, title=title, metric_prefix=metric_prefix)
-    save_csv(df, csv_path)
+    # Save the formatted (string) CSV for human consumption and the raw numeric CSV for programmatic use
+    save_csv(formatted, csv_path)
+    save_csv(df, raw_csv_path)

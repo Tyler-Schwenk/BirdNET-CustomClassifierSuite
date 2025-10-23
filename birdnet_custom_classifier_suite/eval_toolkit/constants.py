@@ -3,19 +3,25 @@ constants.py
 Defines shared metric naming and defaults for BirdNET-CustomClassifierSuite evaluation.
 """
 
-# Default priority metrics for ranking and display
-DEFAULT_PRIORITY_METRICS = [
-    "metrics.ood.best_f1.f1",
+# Primary metrics to use for ranking and evaluation
+# Order matters - first metric (f1) is used as default for ranking
+CORE_METRICS = [
+    "metrics.ood.best_f1.f1",       # Primary ranking metric 
     "metrics.ood.best_f1.precision",
-    "metrics.ood.best_f1.recall",
-    "metrics.iid.best_f1.f1",
+    "metrics.ood.best_f1.recall"
 ]
 
-# Explicit list of known metric columns
-METRIC_COLUMNS = [
-    "metrics.iid.best_f1.f1", "metrics.iid.best_f1.precision", "metrics.iid.best_f1.recall",
-    "metrics.ood.best_f1.f1", "metrics.ood.best_f1.precision", "metrics.ood.best_f1.recall",
-    "metrics.iid.auroc", "metrics.ood.auroc", "metrics.iid.auprc", "metrics.ood.auprc"
+# Additional metrics that may be included in summaries
+SECONDARY_METRICS = [
+    "metrics.iid.best_f1.f1", 
+    "metrics.iid.best_f1.precision",
+    "metrics.iid.best_f1.recall"
+]
+
+# Parameters that are not true metrics (excluded from leaderboards)
+PARAMETER_COLUMNS = [
+    "metrics.iid.best_f1.threshold",
+    "metrics.ood.best_f1.threshold"
 ]
 
 
