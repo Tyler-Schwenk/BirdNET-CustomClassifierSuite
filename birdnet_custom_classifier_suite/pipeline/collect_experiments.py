@@ -5,7 +5,9 @@ collect_experiments.py
 Aggregate experiment_summary.json files into a master CSV.
 
 Usage:
-    python collect_experiments.py --exp-root experiments --out all_experiments.csv
+    python -m birdnet_custom_classifier_suite.pipeline.collect_experiments \
+        --exp-root experiments \
+        --out results/all_experiments.csv
 """
 
 import os
@@ -14,21 +16,25 @@ import argparse
 import pandas as pd
 from pathlib import Path
 
+
 def flatten_json(nested, prefix=""):
     """Flatten nested dict into dot-notation keys."""
     flat = {}
     for k, v in nested.items():
-        key = f"{prefix}{k}" if prefix == "" else f"{prefix}.{k}"
+        key = f"{prefix}{k}" if not prefix else f"{prefix}.{k}"
         if isinstance(v, dict):
             flat.update(flatten_json(v, key))
         else:
             flat[key] = v
     return flat
 
-def collect_experiments(exp_root: str, out_csv: str):
-    rows = []
-    exp_root = Path(exp_root)
 
+def collect_experiments(exp_root: str, out_csv: str = "results/all_experiments.csv"):
+    exp_root = Path(exp_root)
+    out_path = Path(out_csv)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    rows = []
     for exp_dir in exp_root.glob("*"):
         summary_path = exp_dir / "evaluation" / "experiment_summary.json"
         if not summary_path.exists():
@@ -48,22 +54,28 @@ def collect_experiments(exp_root: str, out_csv: str):
 
     df_new = pd.DataFrame(rows)
 
-    # Deduplicate: experiment.name + git_commit + timestamp
-    key_cols = [c for c in ["experiment.name", "metadata.git_commit", "metadata.timestamp"] if c in df_new.columns]
-    if os.path.exists(out_csv):
-        df_old = pd.read_csv(out_csv)
+    key_cols = [
+        c for c in ["experiment.name", "metadata.git_commit", "metadata.timestamp"]
+        if c in df_new.columns
+    ]
+
+    if out_path.exists():
+        df_old = pd.read_csv(out_path)
         df_combined = pd.concat([df_old, df_new], ignore_index=True)
         df_combined = df_combined.drop_duplicates(subset=key_cols, keep="last")
     else:
         df_combined = df_new.drop_duplicates(subset=key_cols, keep="last")
 
-    df_combined.to_csv(out_csv, index=False)
-    print(f"Wrote {len(df_combined)} experiments to {out_csv}")
+    df_combined.to_csv(out_path, index=False)
+    print(f"Wrote {len(df_combined)} experiments to {out_path.resolve()}")
+
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("--exp-root", type=str, default="experiments", help="Root folder containing experiment subfolders")
-    ap.add_argument("--out", type=str, default="all_experiments.csv", help="Output master CSV")
+    ap.add_argument("--exp-root", type=str, default="experiments",
+                    help="Root folder containing experiment subfolders")
+    ap.add_argument("--out", type=str, default="results/all_experiments.csv",
+                    help="Output master CSV (auto-creates results/ if missing)")
     args = ap.parse_args()
 
     collect_experiments(args.exp_root, args.out)

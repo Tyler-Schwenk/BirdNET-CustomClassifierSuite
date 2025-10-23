@@ -38,6 +38,9 @@ models/*.csv
 evaluation/*.png
 evaluation/*.pdf
 experiments/*
+# Keep top-level summaries
+results/*
+!results/all_experiments.csv
 
 
 # --- Data (raw + processed) ---
