@@ -1,4 +1,4 @@
-# 🐸 BirdNET-CustomClassifierSuite
+# BirdNET-CustomClassifierSuite
 
 A modular, reproducible pipeline for training and evaluating **custom BirdNET classifiers**  
 (e.g., for species detection like California Red-legged Frog, Bullfrog, etc.).
@@ -8,7 +8,7 @@ to inference, evaluation, and multi-config sweep generation.
 
 ---
 
-## 📦 Repository Overview
+## Repository Overview
 
 ```
 BirdNET-CustomClassifierSuite/
@@ -38,7 +38,7 @@ BirdNET-CustomClassifierSuite/
 
 ---
 
-## ⚙️ Environment Setup (Windows)
+## Environment Setup (Windows)
 
 ```powershell
 # 1. Create and activate venv
@@ -53,7 +53,7 @@ and installs this project in editable mode.
 
 ---
 
-## 🧩 Base Configuration
+## Base Configuration
 
 Global experiment defaults are stored in [`config/base.yaml`](config/base.yaml).  
 These settings apply to all runs and can be overridden by sweep-specific configs.
@@ -80,13 +80,13 @@ analyzer_args:
   sensitivity: 1.0
 ```
 
-⚠️ *Important:*  
+*Important:*  
 `fmin`, `fmax`, and `overlap` must match between `training_args` and `analyzer_args`
 to ensure consistent spectrogram processing across training and inference.
 
 ---
 
-## 🧮 Sweep Specs
+## Sweep Specs
 
 Tracked sweep definitions live under [`config/sweep_specs/`](config/sweep_specs/).  
 Each spec describes:
@@ -115,7 +115,7 @@ base_params:
 
 ---
 
-## 🚀 Generating Sweeps
+## Generating Sweeps
 
 Run the generator with any sweep spec:
 
@@ -127,7 +127,7 @@ This creates a folder of YAML configs and a manifest CSV under `config/sweeps/<n
 
 ---
 
-## 🧠 Running Sweeps
+## Running Sweeps
 
 Execute all configs in a sweep folder using the training pipeline:
 
@@ -145,7 +145,7 @@ Outputs appear in `experiments/<experiment_name>/`.
 
 ---
 
-## 📊 Evaluating and Aggregating Results
+## Evaluating and Aggregating Results
 
 Once your sweeps finish, use the evaluation toolkit to summarize results:
 
@@ -159,7 +159,7 @@ This produces a combined CSV of all runs and can rank configs by metrics such as
 
 ---
 
-## 🧾 Version Control Recommendations
+## Version Control Recommendations
 
 - **Track:**  
   - `config/base.yaml`  
@@ -174,7 +174,7 @@ This produces a combined CSV of all runs and can rank configs by metrics such as
 
 ---
 
-## 🧪 Quick Test Sweep
+## Quick Test Sweep
 
 You can validate your environment with:
 
@@ -187,7 +187,7 @@ This runs a 4-config micro sweep (1 epoch each) to verify your setup end-to-end.
 
 ---
 
-## 🧩 Future Additions
+## Future Additions
 - Automatic sweep aggregation and leaderboard ranking  
 - YAML validation schema  
 - CLI presets for common stage types (e.g. “Stage 4 Robustness”)  
