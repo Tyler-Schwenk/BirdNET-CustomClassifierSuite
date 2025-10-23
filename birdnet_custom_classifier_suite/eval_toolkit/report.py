@@ -102,6 +102,17 @@ def save_reports(df: pd.DataFrame, out_dir: str, name: str, title: str = None, m
     md_path = out_dir / f"{name}.md"
     csv_path = out_dir / f"{name}.csv"
     raw_csv_path = out_dir / f"{name}.raw.csv"
+    # If there's nothing to write (empty DataFrame), create a minimal markdown + CSV
+    if df is None or df.empty:
+        msg = title or "Leaderboard"
+        msg += "\n\nNo configurations to display (empty results)."
+        md_lines = [f"# {title}\n" if title else "# Leaderboard\n", "\n", "No configurations meet the requested criteria.\n"]
+        md_path.write_text("\n".join(md_lines), encoding="utf-8")
+        # write empty CSV and raw CSV (preserve headers if available)
+        pd.DataFrame().to_csv(csv_path, index=False)
+        pd.DataFrame().to_csv(raw_csv_path, index=False)
+        print(f"✅ Empty report written to {md_path} and CSVs")
+        return
 
     # Create a formatted leaderboard (strings rounded/mean ± std) for human-friendly outputs
     formatted = format_leaderboard(df, metric_prefix=metric_prefix)
