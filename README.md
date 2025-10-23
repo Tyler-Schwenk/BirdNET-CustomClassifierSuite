@@ -198,3 +198,23 @@ This runs a 4-config micro sweep (1 epoch each) to verify your setup end-to-end.
 **Maintainer:**  
 Tyler Schwenk  
 BirdNET-CustomClassifierSuite (2025)
+
+---
+
+## Running tests
+
+This project uses pytest for unit testing. You can run the test suite locally after installing the project's dependencies.
+
+Windows (PowerShell):
+
+```powershell
+# ensure your venv is activated (see Environment Setup above)
+python -m pip install -r requirements.txt
+python -m pytest -q
+```
+
+Notes:
+- Tests live under `tests/` and follow `test_*.py` naming conventions.
+- We canonicalize metric column names to the `metrics.*` prefix in the evaluation toolkit; tests expect that canonicalization.
+- Recommended CI: run `python -m pip install -r requirements.txt` and `python -m pytest -q` on push/PR (GitHub Actions or similar).
+
