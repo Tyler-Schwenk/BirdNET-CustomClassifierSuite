@@ -40,6 +40,36 @@ def main():
     if 'selected_signature' not in st.session_state:
         st.session_state['selected_signature'] = None
     
+    # Auto-load and auto-analyze on first run
+    if 'auto_load_attempted' not in st.session_state:
+        st.session_state['auto_load_attempted'] = True
+        from birdnet_custom_classifier_suite.ui.common.types import DEFAULT_RESULTS_PATH
+        from birdnet_custom_classifier_suite.ui.analysis.data import load_results
+        
+        if DEFAULT_RESULTS_PATH.exists():
+            try:
+                state.results_df = load_results(path=DEFAULT_RESULTS_PATH)
+                state.data_source = DEFAULT_RESULTS_PATH
+                st.success(f"✓ Auto-loaded {len(state.results_df)} rows from `{DEFAULT_RESULTS_PATH}`")
+                
+                # Auto-analyze with default settings
+                try:
+                    # Ensure metric_prefix is a string value, not enum
+                    metric_prefix = state.metric_prefix if isinstance(state.metric_prefix, str) else state.metric_prefix.value
+                    state.summaries, _ = summarize_metrics(
+                        state.results_df,
+                        metric_prefix=metric_prefix,
+                        top_n=state.top_n,
+                        precision_floor=state.precision_floor,
+                    )
+                    st.success(f"✓ Auto-analyzed with default settings (top {state.top_n}, metric: {metric_prefix})")
+                except Exception as e:
+                    st.warning(f"Auto-analysis failed: {e}")
+            except Exception as e:
+                st.warning(f"Could not auto-load default CSV: {e}")
+        else:
+            st.info(f"Default CSV not found at `{DEFAULT_RESULTS_PATH}`. Use the sidebar to load data.")
+    
     # Sidebar controls
     data_loader(state)
     
@@ -52,9 +82,11 @@ def main():
                 # clear any previously selected signature on new analysis
                 st.session_state['selected_signature'] = None
 
+                # Ensure metric_prefix is a string value, not enum
+                metric_prefix = state.metric_prefix if isinstance(state.metric_prefix, str) else state.metric_prefix.value
                 state.summaries, _ = summarize_metrics(
                     state.results_df,
-                    metric_prefix=state.metric_prefix,
+                    metric_prefix=metric_prefix,
                     top_n=state.top_n,
                     precision_floor=state.precision_floor,
                 )
