@@ -58,6 +58,10 @@ def summarize_metrics(
         Tuple of (top config summaries, full summary DataFrame)
     """
     try:
+        # Handle enum objects - extract string value
+        if hasattr(metric_prefix, 'value'):
+            metric_prefix = metric_prefix.value
+        
         # Normalize metric prefix
         if not metric_prefix.startswith("metrics."):
             metric_prefix = f"metrics.{metric_prefix}"
