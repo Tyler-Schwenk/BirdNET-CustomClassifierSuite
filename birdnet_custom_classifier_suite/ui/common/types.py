@@ -1,5 +1,8 @@
 """
 Common type definitions and data structures for the UI modules.
+
+This file contains small, well-typed dataclasses and constants used by the
+Streamlit UI components.
 """
 
 from __future__ import annotations
@@ -20,7 +23,8 @@ DEFAULT_RESULTS_PATH = Path("results/all_experiments.csv")
 # ------------------------- Type Definitions ------------------------- #
 
 class MetricGroup(str, Enum):
-    """Common metric group prefixes."""
+    """Common metric group prefixes used in the results DataFrame."""
+
     OOD_BEST_F1 = "metrics.ood.best_f1"
     IID_BEST_F1 = "metrics.iid.best_f1"
 
@@ -28,16 +32,18 @@ class MetricGroup(str, Enum):
 @dataclass
 class MetricSummary:
     """Summary statistics for a single metric."""
+
     name: str
     mean: float
     std: float
     cv: Optional[float] = None  # coefficient of variation
-    stability: Optional[float] = None  # inverse CV
+    stability: Optional[float] = None  # inverse CV or other stability measure
 
 
 @dataclass
 class ConfigSummary:
     """Summary of a configuration's metrics and metadata."""
+
     signature: str
     experiment_names: List[str]
     metrics: Dict[str, MetricSummary]
@@ -47,51 +53,40 @@ class ConfigSummary:
 @dataclass
 class PerRunBreakdown:
     """Detailed per-run information for a configuration."""
+
     signature: str
     rows: pd.DataFrame
     metric_columns: List[str]
     config_columns: List[str]
-    aggregates: Dict[str, Tuple[float, float]]  # metric -> (mean, std)
+    aggregates: Dict[str, Tuple[Optional[float], Optional[float]]]  # metric -> (mean, std)
 
 
 @dataclass
 class UIState:
-    """Global UI state container."""
+    """Global UI state container persisted in `st.session_state`.
+
+    Fields are intentionally simple so the state is serializable by Streamlit.
+    """
+
     # Data source
     data_source: Optional[Union[str, Path]] = None
     results_df: Optional[pd.DataFrame] = None
-    
+
     # Analysis settings
     metric_prefix: str = MetricGroup.OOD_BEST_F1
     top_n: int = 10
     precision_floor: Optional[float] = None
-    
-    # Selected items
+
+    # Selected UI items
     selected_signature: Optional[str] = None
-    
-    # Computed results
+
+    # Computed results (filled by `summarize_metrics`)
     summaries: List[ConfigSummary] = field(default_factory=list)
 
 
-@dataclass
-class UIState:
-    """Global UI state for sharing across components."""
-    data_source: Optional[Union[str, Path]] = None
-    metric_prefix: str = MetricGroup.OOD_BEST_F1
-    precision_floor: Optional[float] = None
-    top_n: int = 10
-    results_df: Optional[pd.DataFrame] = None
-    selected_signature: Optional[str] = None
-
-
-# ------------------------- Constants ------------------------- #
-
-DEFAULT_RESULTS_PATH = Path("results/all_experiments.csv")
-
-# Columns we generally want to display in leaderboards
+# Useful display/config constants
 DISPLAY_COLUMNS = ["__signature", "experiment.names"]
 
-# Config fields we commonly care about
 IMPORTANT_CONFIG_FIELDS = [
     "dataset.filters.quality",
     "dataset.filters.balance",
