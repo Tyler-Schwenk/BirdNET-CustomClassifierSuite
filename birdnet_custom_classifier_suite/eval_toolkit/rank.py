@@ -178,7 +178,9 @@ def combined_rank(
     # Score using the mean and optionally penalize by std
     eligible["score"] = eligible[mean_col]
     if stability_weight > 0 and std_col in eligible.columns:
-        eligible["score"] -= stability_weight * eligible[std_col]
+        # Fill NaN std with 0 (treat single-seed configs as perfectly stable)
+        std_values = eligible[std_col].fillna(0)
+        eligible["score"] -= stability_weight * std_values
         
     ranked = eligible.sort_values("score", ascending=False).reset_index(drop=True)
     return ranked

@@ -71,7 +71,7 @@ def data_loader(state: UIState,
                 st.error(f"Failed to load results: {e}")
 
 
-def metric_controls(state: UIState) -> None:
+def metric_controls(state: UIState, df: Optional[pd.DataFrame] = None) -> None:
     """Render metric selection and filtering controls.
     
     Args:
@@ -99,6 +99,77 @@ def metric_controls(state: UIState) -> None:
         )
         state.precision_floor = precision_input if precision_input > 0 else None
 
+        # Optional: dataset filter controls
+        if df is not None and not df.empty:
+            st.markdown("---")
+            st.write("Filters")
+
+            def _find_col(columns, prefer: List[str]) -> Optional[str]:
+                # exact match first
+                for p in prefer:
+                    if p in columns:
+                        return p
+                # endswith match
+                for p in prefer:
+                    for c in columns:
+                        if c.endswith(p):
+                            return c
+                # loose contains
+                for p in prefer:
+                    for c in columns:
+                        if p in c:
+                            return c
+                return None
+
+            cols = list(df.columns)
+            quality_col = _find_col(cols, [
+                'dataset.filters.quality', 'filters.quality', '.quality', 'quality'
+            ])
+            balance_col = _find_col(cols, [
+                'dataset.filters.balance', 'filters.balance', '.balance', 'balance'
+            ])
+
+            if quality_col:
+                q_vals = sorted(pd.Series(df[quality_col].dropna().unique()).tolist())
+                selected = st.multiselect(
+                    f"Quality ({quality_col})",
+                    options=q_vals,
+                    default=state.quality_filter or []
+                )
+                state.quality_filter = selected if selected else None
+
+            if balance_col:
+                b_vals = sorted(pd.Series(df[balance_col].dropna().unique()).tolist())
+                selected = st.multiselect(
+                    f"Balance ({balance_col})",
+                    options=b_vals,
+                    default=state.balance_filter or []
+                )
+                state.balance_filter = selected if selected else None
+
+            # Extract stage/sweep from experiment.name
+            if 'experiment.name' in cols:
+                def extract_stage(name):
+                    """Extract stage prefix like 'stage3', 'stage3b', 'stage1_sweep' from experiment name."""
+                    name_lower = str(name).lower()
+                    if 'stage' in name_lower:
+                        # Find 'stage' and capture following characters until underscore or end
+                        import re
+                        match = re.search(r'stage\d+[a-z]*(?:_sweep)?', name_lower)
+                        if match:
+                            return match.group(0)
+                    return None
+                
+                stages = df['experiment.name'].apply(extract_stage).dropna().unique()
+                if len(stages) > 0:
+                    stage_vals = sorted(stages.tolist())
+                    selected = st.multiselect(
+                        "Stage/Sweep",
+                        options=stage_vals,
+                        default=state.sweep_filter or []
+                    )
+                    state.sweep_filter = selected if selected else None
+
 
 def leaderboard(summaries: List[ConfigSummary],
                 on_select: Optional[Callable[[str], None]] = None) -> None:
@@ -111,6 +182,41 @@ def leaderboard(summaries: List[ConfigSummary],
         st.info("No configurations to show.")
         return
 
+    # Optional config column controls
+    st.write("**Show additional columns:**")
+    cols_ctrl = st.columns(6)
+    with cols_ctrl[0]:
+        show_quality = st.checkbox("Quality", value=False, key='lb_quality')
+    with cols_ctrl[1]:
+        show_balance = st.checkbox("Balance", value=False, key='lb_balance')
+    with cols_ctrl[2]:
+        show_upsampling = st.checkbox("Upsampling", value=False, key='lb_upsampling')
+    with cols_ctrl[3]:
+        show_mixup = st.checkbox("Mixup", value=False, key='lb_mixup')
+    with cols_ctrl[4]:
+        show_label_smoothing = st.checkbox("Label Smoothing", value=False, key='lb_label_smoothing')
+    with cols_ctrl[5]:
+        show_focal_loss = st.checkbox("Focal Loss", value=False, key='lb_focal_loss')
+
+    # Helper to format config values nicely
+    def format_config_value(val):
+        """Format config values for display."""
+        if val is None or pd.isna(val):
+            return 'n/a'
+        # Parse string representations of lists
+        if isinstance(val, str) and val.startswith('['):
+            try:
+                import ast
+                parsed = ast.literal_eval(val)
+                if isinstance(parsed, list):
+                    return ', '.join(str(x) for x in parsed)
+            except Exception:
+                pass
+        # Handle booleans
+        if isinstance(val, bool):
+            return 'Yes' if val else 'No'
+        return str(val)
+
     # Build a clean DataFrame for display
     rows = []
     for summary in summaries:
@@ -118,6 +224,52 @@ def leaderboard(summaries: List[ConfigSummary],
             "Signature": summary.signature,
             "Experiments": ", ".join(summary.experiment_names),
         }
+        
+        # Add optional config columns
+        if show_quality:
+            val = summary.config_values.get('dataset.filters.quality', 
+                  summary.config_values.get('filters.quality'))
+            row["Quality"] = format_config_value(val)
+        if show_balance:
+            val = summary.config_values.get('dataset.filters.balance',
+                  summary.config_values.get('filters.balance'))
+            row["Balance"] = format_config_value(val)
+        if show_upsampling:
+            # Look for upsampling mode and ratio
+            mode = summary.config_values.get('training_args.upsampling_mode',
+                   summary.config_values.get('training.upsampling.mode',
+                   summary.config_values.get('upsampling.mode')))
+            ratio = summary.config_values.get('training_args.upsampling_ratio',
+                    summary.config_values.get('training.upsampling.ratio',
+                    summary.config_values.get('upsampling.ratio',
+                    summary.config_values.get('upsample_ratio'))))
+            if mode or ratio:
+                mode_str = format_config_value(mode) if mode else ''
+                ratio_str = format_config_value(ratio) if ratio else ''
+                row["Upsampling"] = f"{mode_str}/{ratio_str}" if mode_str and ratio_str else (mode_str or ratio_str or 'n/a')
+            else:
+                row["Upsampling"] = 'n/a'
+        if show_mixup:
+            val = summary.config_values.get('training_args.mixup',
+                  summary.config_values.get('training.mixup',
+                  summary.config_values.get('mixup')))
+            row["Mixup"] = format_config_value(val)
+        if show_label_smoothing:
+            val = summary.config_values.get('training_args.label_smoothing',
+                  summary.config_values.get('training.label_smoothing',
+                  summary.config_values.get('training.label-smoothing',
+                  summary.config_values.get('label_smoothing',
+                  summary.config_values.get('label-smoothing')))))
+            row["Label Smoothing"] = format_config_value(val)
+        if show_focal_loss:
+            val = summary.config_values.get('training_args.focal_loss',
+                  summary.config_values.get('training_args.focal-loss',
+                  summary.config_values.get('training.focal_loss',
+                  summary.config_values.get('training.focal-loss',
+                  summary.config_values.get('focal_loss',
+                  summary.config_values.get('focal-loss'))))))
+            row["Focal Loss"] = format_config_value(val)
+        
         for name, metric in summary.metrics.items():
             short_name = name.replace("metrics.", "").replace(".best_f1", "")
             # Format as 'mean ± std' with 3 decimal places for display
@@ -146,8 +298,23 @@ def leaderboard(summaries: List[ConfigSummary],
     # We'll create numeric mean/std columns for each metric so AG Grid can sort numerically
     # while using a JS formatter to display "mean ± std".
 
-        # Identify metric columns by those not Signature/Experiments
-        metric_cols = [c for c in df.columns if c not in ('Signature', 'Experiments')]
+        # Identify config columns (the ones we added with checkboxes)
+        config_column_names = []
+        if show_quality:
+            config_column_names.append('Quality')
+        if show_balance:
+            config_column_names.append('Balance')
+        if show_upsampling:
+            config_column_names.append('Upsampling')
+        if show_mixup:
+            config_column_names.append('Mixup')
+        if show_label_smoothing:
+            config_column_names.append('Label Smoothing')
+        if show_focal_loss:
+            config_column_names.append('Focal Loss')
+
+        # Identify metric columns by those not Signature/Experiments/Config columns
+        metric_cols = [c for c in df.columns if c not in (['Signature', 'Experiments'] + config_column_names)]
         for mc in metric_cols:
             # Our df currently contains formatted strings; try to parse numeric mean and std
             # If the value is like 'mean ± sd', split it; else treat as numeric single value
@@ -171,24 +338,34 @@ def leaderboard(summaries: List[ConfigSummary],
             df[mean_col] = parsed.apply(lambda x: x[0])
             df[std_col] = parsed.apply(lambda x: x[1])
 
-        # Remove the original text columns so the grid shows numeric mean/std (we'll format mean via JS)
+        # Remove the original metric text columns (but keep config columns as-is)
         df_display = df.drop(columns=metric_cols)
 
         gb = GridOptionsBuilder.from_dataframe(df_display)
-        # Configure selection to work in both older and newer AG Grid versions:
-        # - Older versions use selection_mode='single'
-        # - Newer prefer {'type': 'single', 'mode': 'singleRow'}
+        # Configure selection using AG Grid v32+ API (object-based)
         gb.configure_selection(
             selection_mode='single',
             use_checkbox=False,
-            pre_selected_rows=[],  # start with no selection
-            rowMultiSelectWithClick=False,  # ensure single selection mode
-            suppressRowDeselection=False,  # allow deselect by clicking again
+            pre_selected_rows=[],
         )
         # Standard column setup
-        gb.configure_default_column(minWidth=120, sortable=True, filter=True)
-        gb.configure_column('Signature', header_name='Signature', minWidth=220, sortable=True, filter=True)
-        gb.configure_column('Experiments', header_name='Experiments', minWidth=300, sortable=True, filter=True)
+        gb.configure_default_column(minWidth=60, sortable=True, filter=True)
+        gb.configure_column('Signature', header_name='Signature', minWidth=60, sortable=True, filter=True)
+        gb.configure_column('Experiments', header_name='Experiments', minWidth=80, sortable=True, filter=True)
+        
+        # Configure optional config columns with narrower widths
+        if show_quality and 'Quality' in df_display.columns:
+            gb.configure_column('Quality', minWidth=80, width=100)
+        if show_balance and 'Balance' in df_display.columns:
+            gb.configure_column('Balance', minWidth=80, width=120)
+        if show_upsampling and 'Upsampling' in df_display.columns:
+            gb.configure_column('Upsampling', minWidth=100, width=140)
+        if show_mixup and 'Mixup' in df_display.columns:
+            gb.configure_column('Mixup', minWidth=70, width=90)
+        if show_label_smoothing and 'Label Smoothing' in df_display.columns:
+            gb.configure_column('Label Smoothing', minWidth=100, width=140)
+        if show_focal_loss and 'Focal Loss' in df_display.columns:
+            gb.configure_column('Focal Loss', minWidth=80, width=110)
 
         # Add formatted mean columns and hidden std columns
         for mc in metric_cols:
@@ -203,6 +380,16 @@ def leaderboard(summaries: List[ConfigSummary],
 
         st.write("Click a row to see details:")
         grid_options = gb.build()
+
+        # Update rowSelection to use AG Grid v32+ object format
+        if 'rowSelection' in grid_options:
+            if grid_options['rowSelection'] in ('single', 'multiple'):
+                # Convert deprecated string format to new object format
+                grid_options['rowSelection'] = {
+                    'mode': 'singleRow' if grid_options['rowSelection'] == 'single' else 'multiRow',
+                    'checkboxes': False,
+                    'enableClickSelection': True,
+                }
 
         # Remove known deprecated top-level flags to reduce AG Grid console warnings
         for deprecated in [
@@ -304,8 +491,9 @@ def leaderboard(summaries: List[ConfigSummary],
 def signature_details(breakdown: Optional[PerRunBreakdown]) -> None:
     """Render detailed information for a configuration signature.
 
-    Presents an aggregate metric card view, a compact configuration summary,
-    and an expandable per-run table with cleaned column names.
+    Presents an aggregate metric card view, a compact configuration summary
+    organized by category with non-default values highlighted, and an
+    expandable per-run table with cleaned column names.
     """
     if not breakdown:
         st.info("No details available for this signature.")
@@ -326,24 +514,191 @@ def signature_details(breakdown: Optional[PerRunBreakdown]) -> None:
                 delta = f"±{sd:.4f}" if (sd is not None and not pd.isna(sd)) else None
                 st.metric(label=display_name, value=value, delta=delta)
 
-    # Configuration summary
+    # Configuration summary - categorized and prioritized
     if breakdown.config_columns:
+        from birdnet_custom_classifier_suite.ui.common.config_defaults import (
+            get_category,
+            is_default_value,
+        )
+        
+        # Helper: build unique, human-readable labels for keys within a category
+        def _build_pretty_labels(items: dict) -> dict:
+            def base_label(key: str) -> str:
+                parts = key.split('.')
+                tail = parts[-1]
+                return tail.replace('_', ' ').replace('-', ' ')
+
+            # Count base labels to detect collisions
+            counts = {}
+            for k in items.keys():
+                lbl = base_label(k)
+                counts[lbl] = counts.get(lbl, 0) + 1
+
+            # Disambiguate duplicates by prefixing with previous segment
+            labels = {}
+            for k in items.keys():
+                lbl = base_label(k)
+                if counts[lbl] == 1:
+                    labels[k] = lbl
+                else:
+                    parts = k.split('.')
+                    if len(parts) >= 2:
+                        prev = parts[-2].replace('_', ' ').replace('-', ' ')
+                        labels[k] = f"{prev} {lbl}"
+                    else:
+                        labels[k] = lbl
+            return labels
+        
         st.write("### Configuration")
+        
+        # Collect config values
         config_data = {}
         for col in breakdown.config_columns:
+            # Skip internal/meta columns
+            if col.startswith('__') or col in ('experiment.name', 'experiment.names'):
+                continue
+                
             vals = breakdown.rows[col].dropna().unique()
             if len(vals) == 1:
                 config_data[col] = vals[0]
             elif len(vals) > 1:
                 config_data[col] = f"Multiple: {', '.join(map(str, vals))}"
+        
+        # Categorize and check defaults
+        categorized = {}
+        non_defaults = {}
+        defaults = {}
+        
+        for key, value in config_data.items():
+            category = get_category(key)
+            if category not in categorized:
+                categorized[category] = {}
+            categorized[category][key] = value
+            
+            # Check if this is a non-default value
+            if is_default_value(key, value):
+                if category not in defaults:
+                    defaults[category] = {}
+                defaults[category][key] = value
             else:
-                config_data[col] = "n/a"
+                if category not in non_defaults:
+                    non_defaults[category] = {}
+                non_defaults[category][key] = value
+        
+        # Demote some keys into "Additional settings" regardless of defaultness
+        def _is_additional_key(k: str) -> bool:
+            kl = k.lower()
+            return (
+                'manifest' in kl
+                or kl.endswith('.splits') or kl.endswith('splits')
+                or kl.endswith('.threads') or kl.endswith('threads')
+                or 'source.root' in kl or 'source_root' in kl
+            )
 
-        # Two-column layout for config key-values
-        cfg_cols = st.columns(2)
-        for i, (k, v) in enumerate(config_data.items()):
-            with cfg_cols[i % 2]:
-                st.write(f"**{k}**: {v}")
+        additional = {}
+
+        def _move_into_additional(bucket: dict):
+            to_move = []
+            for cat, items in bucket.items():
+                for k in items.keys():
+                    if _is_additional_key(k):
+                        to_move.append((cat, k))
+            for cat, k in to_move:
+                additional.setdefault(cat, {})[k] = bucket[cat].pop(k)
+                if not bucket[cat]:
+                    bucket.pop(cat, None)
+
+        _move_into_additional(non_defaults)
+        _move_into_additional(defaults)
+
+        # Collect dataset detail items (condense into their own expander)
+        dataset_detail_tokens_key = {'negative', 'growl', 'grunt', 'both', 'high', 'low', 'medium', 'pos', 'neg'}
+        dataset_detail_tokens_val = {'negative total', 'growl', 'grunt', 'both', 'high', 'low', 'medium', 'pos', 'neg'}
+
+        dataset_details = {}
+
+        def _is_dataset_detail(cat: str, k: str, v: any) -> bool:
+            if cat != 'dataset':
+                return False
+            ks = k.lower()
+            vs = str(v).lower()
+            return (
+                any(tok in ks for tok in dataset_detail_tokens_key)
+                or vs in dataset_detail_tokens_val
+            )
+
+        def _extract_dataset_details(bucket: dict):
+            to_move = []
+            for cat, items in bucket.items():
+                for k, v in items.items():
+                    if _is_dataset_detail(cat, k, v):
+                        to_move.append((cat, k))
+                        dataset_details[k] = v
+            for cat, k in to_move:
+                bucket[cat].pop(k, None)
+                if not bucket[cat]:
+                    bucket.pop(cat, None)
+
+        _extract_dataset_details(non_defaults)
+        _extract_dataset_details(defaults)
+        _extract_dataset_details(additional)
+
+        # Prepare pretty labels per category using combined keys (defaults + non-defaults)
+        category_label_maps = {}
+        for category in set(list(non_defaults.keys()) + list(defaults.keys()) + list(additional.keys())):
+            combined = {}
+            if category in non_defaults:
+                combined.update(non_defaults[category])
+            if category in defaults:
+                combined.update(defaults[category])
+            if category in additional:
+                combined.update(additional[category])
+            category_label_maps[category] = _build_pretty_labels(combined)
+
+        # Display non-default configs prominently
+        if non_defaults:
+            for category in sorted(non_defaults.keys()):
+                st.write(f"**{category.replace('_', ' ').title()}**")
+                cfg_cols = st.columns(2)
+                label_map = category_label_maps.get(category, {})
+                for i, (k, v) in enumerate(sorted(non_defaults[category].items())):
+                    with cfg_cols[i % 2]:
+                        pretty = label_map.get(k, k)
+                        st.write(f"• **{pretty}**: `{v}`")
+        
+        # Dataset details expander (condensed)
+        if dataset_details:
+            with st.expander("Dataset details", expanded=False):
+                # Build labels from the dataset_details key set
+                label_map_ds = _build_pretty_labels(dataset_details)
+                cfg_cols = st.columns(2)
+                for i, (k, v) in enumerate(sorted(dataset_details.items())):
+                    with cfg_cols[i % 2]:
+                        pretty = label_map_ds.get(k, k)
+                        st.write(f"• {pretty}: {v}")
+
+        # Additional settings expander: includes demoted keys and defaults
+        if additional or defaults:
+            with st.expander("Additional settings", expanded=False):
+                # First, show demoted keys (additional)
+                for category in sorted(additional.keys()):
+                    st.write(f"**{category.replace('_', ' ').title()}**")
+                    cfg_cols = st.columns(2)
+                    label_map = category_label_maps.get(category, {})
+                    for i, (k, v) in enumerate(sorted(additional[category].items())):
+                        with cfg_cols[i % 2]:
+                            pretty = label_map.get(k, k)
+                            st.write(f"• {pretty}: {v}")
+
+                # Then, show remaining defaults
+                for category in sorted(defaults.keys()):
+                    st.write(f"**{category.replace('_', ' ').title()}**")
+                    cfg_cols = st.columns(2)
+                    label_map = category_label_maps.get(category, {})
+                    for i, (k, v) in enumerate(sorted(defaults[category].items())):
+                        with cfg_cols[i % 2]:
+                            pretty = label_map.get(k, k)
+                            st.write(f"• {pretty}: {v}")
 
     # Per-run table in expander
     with st.expander("View individual runs", expanded=False):

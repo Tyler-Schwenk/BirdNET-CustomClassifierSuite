@@ -74,7 +74,7 @@ def main():
     data_loader(state)
     
     if state.results_df is not None:
-        metric_controls(state)
+        metric_controls(state, state.results_df)
 
         # Analyze button triggers computation and stores summaries in session state
         if st.sidebar.button("Analyze"):
@@ -84,12 +84,55 @@ def main():
 
                 # Ensure metric_prefix is a string value, not enum
                 metric_prefix = state.metric_prefix if isinstance(state.metric_prefix, str) else state.metric_prefix.value
-                state.summaries, _ = summarize_metrics(
-                    state.results_df,
-                    metric_prefix=metric_prefix,
-                    top_n=state.top_n,
-                    precision_floor=state.precision_floor,
-                )
+                # Apply optional filters
+                df_to_use = state.results_df
+                def _find_col(columns, prefer):
+                    for p in prefer:
+                        if p in columns:
+                            return p
+                    for p in prefer:
+                        for c in columns:
+                            if c.endswith(p):
+                                return c
+                    for p in prefer:
+                        for c in columns:
+                            if p in c:
+                                return c
+                    return None
+
+                if df_to_use is not None and not df_to_use.empty:
+                    cols = list(df_to_use.columns)
+                    quality_col = _find_col(cols, ['dataset.filters.quality', 'filters.quality', '.quality', 'quality'])
+                    balance_col = _find_col(cols, ['dataset.filters.balance', 'filters.balance', '.balance', 'balance'])
+                    
+                    if quality_col and state.quality_filter:
+                        df_to_use = df_to_use[df_to_use[quality_col].isin(state.quality_filter)]
+                    if balance_col and state.balance_filter:
+                        df_to_use = df_to_use[df_to_use[balance_col].isin(state.balance_filter)]
+                    
+                    # Stage/sweep filter: extract from experiment.name
+                    if state.sweep_filter and 'experiment.name' in cols:
+                        def extract_stage(name):
+                            import re
+                            name_lower = str(name).lower()
+                            if 'stage' in name_lower:
+                                match = re.search(r'stage\d+[a-z]*(?:_sweep)?', name_lower)
+                                if match:
+                                    return match.group(0)
+                            return None
+                        df_to_use['__stage_temp'] = df_to_use['experiment.name'].apply(extract_stage)
+                        df_to_use = df_to_use[df_to_use['__stage_temp'].isin(state.sweep_filter)]
+                        df_to_use = df_to_use.drop(columns=['__stage_temp'])
+
+                if df_to_use is None or df_to_use.empty:
+                    st.warning("No rows after applying filters; adjust filters and try again.")
+                else:
+                    state.summaries, _ = summarize_metrics(
+                        df_to_use,
+                        metric_prefix=metric_prefix,
+                        top_n=state.top_n,
+                        precision_floor=state.precision_floor,
+                    )
             except Exception as e:
                 st.error(f"Analysis failed: {e}")
                 st.exception(e)

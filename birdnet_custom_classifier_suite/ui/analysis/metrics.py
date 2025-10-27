@@ -109,15 +109,26 @@ def summarize_metrics(
                             stability=float(row[stability_col]) if stability_col in row.index else None,
                         )
 
+            # Get config values from original df for this signature
+            sig = row["__signature"]
+            sig_rows = df[df["__signature"] == sig]
             config_values = {}
-            config_cols = [c for c in row.index if not any(c.startswith(p) for p in ["metrics.", "__"])]
-            for col in config_cols:
-                if pd.notna(row[col]):
-                    config_values[col] = row[col]
+            if not sig_rows.empty:
+                # Get config columns (non-metric, non-internal)
+                config_cols = signature.pick_config_columns(df)
+                for col in config_cols:
+                    if col in sig_rows.columns:
+                        # Get unique value (should be same across all runs with same signature)
+                        vals = sig_rows[col].dropna().unique()
+                        if len(vals) == 1:
+                            config_values[col] = vals[0]
+                        elif len(vals) > 1:
+                            # Multiple values - shouldn't happen for same signature but handle it
+                            config_values[col] = vals[0]  # Just take first
 
             config_summaries.append(
                 ConfigSummary(
-                    signature=row["__signature"],
+                    signature=sig,
                     experiment_names=row["experiment.names"].split(", ") if "experiment.names" in row else [],
                     metrics=metrics,
                     config_values=config_values,

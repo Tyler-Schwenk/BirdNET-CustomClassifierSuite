@@ -77,6 +77,11 @@ class UIState:
     top_n: int = 10
     precision_floor: Optional[float] = None
 
+    # Optional filters (values selected by the user)
+    quality_filter: Optional[List] = None
+    balance_filter: Optional[List] = None
+    sweep_filter: Optional[List] = None
+
     # Selected UI items
     selected_signature: Optional[str] = None
 
