@@ -108,6 +108,49 @@ def data_loader(state: UIState,
                     on_load(state.results_df)
             except Exception as e:
                 st.error(f"Failed to load results: {e}")
+def data_loader(state: UIState) -> None:
+    """Sidebar loader for results CSVs. Allows switching between any results/*.csv file and custom uploads."""
+    import streamlit as st
+    import os
+    from pathlib import Path
+    results_dir = Path('results')
+    # List all CSVs in results/
+    csv_files = sorted([f for f in results_dir.glob('*.csv') if f.is_file()])
+    st.sidebar.markdown("**Select results file**")
+    file_options = {str(f): f for f in csv_files}
+    if not file_options:
+        st.sidebar.warning("No CSV files found in results/.")
+        return
+    selected_file = st.sidebar.selectbox(
+        "Results file",
+        options=list(file_options.keys()),
+        index=0,
+    )
+    # Custom file upload
+    uploaded_file = st.sidebar.file_uploader("Or upload a CSV", type=["csv"])
+    # Load logic
+    load_path = None
+    if uploaded_file is not None:
+        import pandas as pd
+        try:
+            df = pd.read_csv(uploaded_file)
+            state.results_df = df
+            state.data_source = uploaded_file.name
+            st.success(f"✓ Loaded {len(df)} rows from uploaded file: {uploaded_file.name}")
+            return
+        except Exception as e:
+            st.error(f"Failed to load uploaded CSV: {e}")
+            return
+    else:
+        load_path = file_options[selected_file]
+        import pandas as pd
+        try:
+            df = pd.read_csv(load_path)
+            state.results_df = df
+            state.data_source = load_path
+            st.success(f"✓ Loaded {len(df)} rows from {load_path}")
+        except Exception as e:
+            st.error(f"Failed to load selected CSV: {e}")
 
 
 def metric_controls(state: UIState, df: Optional[pd.DataFrame] = None) -> None:
