@@ -62,7 +62,7 @@ def collect_experiments(exp_root: str, out_csv: str = "results/all_experiments.c
         "metrics.iid.best_f1.threshold","metrics.iid.best_f1.precision","metrics.iid.best_f1.recall","metrics.iid.best_f1.f1","metrics.iid.best_f1.accuracy",
         "metrics.iid.auroc","metrics.iid.auprc","metrics.ood.best_f1.threshold","metrics.ood.best_f1.precision","metrics.ood.best_f1.recall",
         "metrics.ood.best_f1.f1","metrics.ood.best_f1.accuracy","metrics.ood.auroc","metrics.ood.auprc","metadata.timestamp","metadata.git_commit",
-        "training_args.fmin","training_args.fmax","analyzer_args.fmin","analyzer_args.fmax","analyzer_args.sensitivity","training_args.overlap",
+        "training_args.fmin","training_args.fmax","analyzer_args.fmin","analyzer_args.fmax","analyzer_args.sensitivity","analyzer_args.min_conf","training_args.overlap",
         "analyzer_args.overlap","training_args.focal-loss","training_args.focal-loss-gamma","training_args.focal-loss-alpha","training_args.learning_rate",
         "training.dropout","training_args.hidden_units","training_args.mixup","training_args.dropout","training_args.label_smoothing",
         "training_args.upsampling_mode","training_args.upsampling_ratio","training_args.batch_size","training_args.focal_loss","training_args.epochs"
