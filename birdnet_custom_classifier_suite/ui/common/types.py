@@ -18,6 +18,9 @@ import pandas as pd
 # ------------------------- Constants ------------------------- #
 
 DEFAULT_RESULTS_PATH = Path("results/all_experiments.csv")
+# If a regenerated results file exists, many UIs should prefer it.
+# Keep as a separate constant so callers can decide precedence explicitly.
+NEW_RESULTS_PATH = Path("results/all_experiments_new.csv")
 
 
 # ------------------------- Type Definitions ------------------------- #

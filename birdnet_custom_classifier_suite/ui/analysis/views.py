@@ -28,6 +28,7 @@ from birdnet_custom_classifier_suite.ui.analysis.metrics import (
 from birdnet_custom_classifier_suite.ui.common.types import (
     ConfigSummary,
     DEFAULT_RESULTS_PATH,
+    NEW_RESULTS_PATH,
     MetricGroup,
     PerRunBreakdown,
     UIState,
@@ -44,27 +45,65 @@ def data_loader(state: UIState,
     """
     with st.sidebar.expander("Load data", expanded=True):
         st.write("Choose a source for experiment results (CSV):")
-        use_default = st.checkbox("Use default path", value=True)
-        uploaded = st.file_uploader("Or upload a CSV file", type=["csv"]) if not use_default else None
-        custom_path = st.text_input(
-            "Custom path (if not using default)",
-            value=str(DEFAULT_RESULTS_PATH) if use_default else "",
+        # Persist the toggle across reruns
+        use_default_key = 'use_default_path_toggle'
+        use_default = st.checkbox(
+            "Use default path",
+            value=st.session_state.get(use_default_key, True),
+            key=use_default_key,
         )
 
-        if use_default:
-            state.data_source = DEFAULT_RESULTS_PATH
+        # Discover available default files (prefer Original by default)
+        available_defaults = []
+        if DEFAULT_RESULTS_PATH.exists():
+            available_defaults.append(("Original", DEFAULT_RESULTS_PATH))
+        if NEW_RESULTS_PATH.exists():
+            available_defaults.append(("New (re-evaluated)", NEW_RESULTS_PATH))
+
+        selected_default_idx = 0
+        if use_default and available_defaults:
+            # Persist selection across reruns
+            sel_key = 'default_results_choice_idx'
+            # If user previously selected, use that; else prefer the first (which is NEW if present)
+            prev_idx = st.session_state.get(sel_key, None)
+            labels = [f"{lbl} — {path.name}" for (lbl, path) in available_defaults]
+            # Default to the index of DEFAULT_RESULTS_PATH when first shown
+            default_idx = next((i for i, (_, p) in enumerate(available_defaults) if p == DEFAULT_RESULTS_PATH), 0)
+            selected_default_idx = st.selectbox(
+                "Default source",
+                options=list(range(len(labels))),
+                format_func=lambda i: labels[i],
+                index=min(prev_idx if prev_idx is not None else default_idx, len(labels)-1),
+            )
+            st.session_state[sel_key] = selected_default_idx
+            state.data_source = available_defaults[selected_default_idx][1]
         else:
+            uploaded = st.file_uploader("Or upload a CSV file", type=["csv"]) if not use_default else None
+            custom_path = st.text_input(
+                "Custom path (if not using default)",
+                value="",
+            )
             state.data_source = Path(custom_path.strip()) if custom_path.strip() else None
 
         run_btn = st.button("Load Data")
 
         if run_btn:
             try:
+                # Validate inputs when not using default
+                if not use_default:
+                    if uploaded is None and state.data_source is None:
+                        st.warning("Provide a custom path or upload a CSV file.")
+                        return
+                    if state.data_source is not None and not state.data_source.exists():
+                        st.error(f"File not found: {state.data_source}")
+                        return
+
                 state.results_df = load_results(
                     path=state.data_source,
-                    uploaded_file=uploaded,
+                    uploaded_file=uploaded if not use_default else None,
                 )
-                st.success(f"Loaded {len(state.results_df)} rows from results source.")
+                src_str = str(state.data_source) if state.data_source else (uploaded.name if uploaded else "uploaded file")
+                st.success(f"Loaded {len(state.results_df)} rows from: {src_str}")
                 if on_load:
                     on_load(state.results_df)
             except Exception as e:

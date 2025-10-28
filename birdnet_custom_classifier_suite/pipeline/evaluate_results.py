@@ -164,78 +164,90 @@ def get_labels_from_path(path: str):
     return true, quality, calltype
 
 def evaluate(df, split_name, outdir):
-    df["true_label"], df["quality"], df["calltype"] = zip(*df["File"].map(get_labels_from_path))
-    df["pred_label"] = np.where(df["Scientific name"] == "RADR", "RADR", "Negative")
-    df["score"] = df["Confidence"]
+    """Evaluate at the FILE level using max RADR confidence per file.
 
-    y_true = (df["true_label"] == "RADR").astype(int).values
-    y_score = df["score"].values
+    - Score per file = max Confidence where Scientific name == 'RADR' for that file; if none, 0.0.
+    - Ground truth per file from file path.
+    This fixes row-level bias and mixing 'Negative' confidences into the positive score.
+    """
+    # Build per-file frame
+    files = pd.DataFrame({"File": df["File"].unique()})
+    files["true_label"], files["quality"], files["calltype"] = zip(*files["File"].map(get_labels_from_path))
+
+    # Max RADR confidence per file; default 0 if not present
+    radr = df[df["Scientific name"] == "RADR"].groupby("File")["Confidence"].max()
+    files = files.merge(radr.rename("score"), on="File", how="left")
+    files["score"] = files["score"].fillna(0.0)
+
+    y_true = (files["true_label"] == "RADR").astype(int).values
+    y_score = files["score"].values
 
     # === Threshold sweep ===
     rows = []
     for thr in THRESHOLDS:
         y_pred = (y_score >= thr).astype(int)
         cm = confusion_matrix(y_true, y_pred, labels=[1, 0])
-        tn, fp, fn, tp = cm.ravel() if cm.size == 4 else (0,0,0,0)
-        precision = tp / (tp + fp) if (tp+fp) else 0
-        recall = tp / (tp + fn) if (tp+fn) else 0
-        f1 = 2*precision*recall/(precision+recall) if (precision+recall) else 0
-        acc = (tp+tn)/(tp+tn+fp+fn) if (tp+tn+fp+fn) else 0
-        fpr = fp / (fp + tn) if (fp+tn) else 0
-        tnr = tn / (tn + fp) if (tn+fp) else 0
+        tn, fp, fn, tp = cm.ravel() if cm.size == 4 else (0, 0, 0, 0)
+        precision = tp / (tp + fp) if (tp + fp) else 0.0
+        recall = tp / (tp + fn) if (tp + fn) else 0.0
+        f1 = 2 * precision * recall / (precision + recall) if (precision + recall) else 0.0
+        acc = (tp + tn) / (tp + tn + fp + fn) if (tp + tn + fp + fn) else 0.0
+        fpr = fp / (fp + tn) if (fp + tn) else 0.0
+        tnr = tn / (tn + fp) if (tn + fp) else 0.0
         rows.append({
             "split": split_name, "threshold": thr,
             "precision": precision, "recall": recall, "f1": f1,
             "accuracy": acc, "fpr": fpr, "tnr": tnr,
-            "tp": tp, "fp": fp, "fn": fn, "tn": tn
+            "tp": tp, "fp": fp, "fn": fn, "tn": tn,
         })
     metrics_df = pd.DataFrame(rows)
 
-    # === Curves ===
+    # === Curves === (file-level)
     fpr, tpr, _ = roc_curve(y_true, y_score)
     roc_auc = auc(fpr, tpr)
-    precision, recall, _ = precision_recall_curve(y_true, y_score)
+    precision_vals, recall_vals, _ = precision_recall_curve(y_true, y_score)
     pr_auc = average_precision_score(y_true, y_score)
 
     # Save curve data
     pd.DataFrame({"fpr": fpr, "tpr": tpr}).to_csv(os.path.join(outdir, f"roc_data_{split_name}.csv"), index=False)
-    pd.DataFrame({"recall": recall, "precision": precision}).to_csv(os.path.join(outdir, f"pr_data_{split_name}.csv"), index=False)
+    pd.DataFrame({"recall": recall_vals, "precision": precision_vals}).to_csv(os.path.join(outdir, f"pr_data_{split_name}.csv"), index=False)
 
     # Save plots
     plt.figure()
     plt.plot(fpr, tpr, label=f"AUC={roc_auc:.3f}")
-    plt.plot([0,1],[0,1],"k--")
+    plt.plot([0, 1], [0, 1], "k--")
     plt.xlabel("False Positive Rate"); plt.ylabel("True Positive Rate")
     plt.title(f"ROC Curve ({split_name})"); plt.legend()
     plt.savefig(os.path.join(outdir, f"roc_curve_{split_name}.png")); plt.close()
 
     plt.figure()
-    plt.plot(recall, precision, label=f"AP={pr_auc:.3f}")
+    plt.plot(recall_vals, precision_vals, label=f"AP={pr_auc:.3f}")
     plt.xlabel("Recall"); plt.ylabel("Precision")
     plt.title(f"PR Curve ({split_name})"); plt.legend()
     plt.savefig(os.path.join(outdir, f"pr_curve_{split_name}.png")); plt.close()
 
-    # === Group breakdown ===
+    # === Group breakdown at default threshold 0.5 (file-level) ===
     group_rows = []
+    thr = 0.5
+    files["y_true"] = (files["true_label"] == "RADR").astype(int)
+    files["y_pred"] = (files["score"] >= thr).astype(int)
     for group_col in ["quality", "calltype"]:
-        for group, sub in df.groupby(group_col):
+        for group, sub in files.groupby(group_col):
             if group == "negative":
                 continue
-            y_true_g = (sub["true_label"]=="RADR").astype(int)
-            y_pred_g = (sub["pred_label"]=="RADR").astype(int)
-            if len(y_true_g) == 0:
+            if len(sub) == 0:
                 continue
-            cm = confusion_matrix(y_true_g, y_pred_g, labels=[1,0])
-            tn, fp, fn, tp = cm.ravel() if cm.size==4 else (0,0,0,0)
-            precision = tp/(tp+fp) if (tp+fp) else 0
-            recall = tp/(tp+fn) if (tp+fn) else 0
-            f1 = 2*precision*recall/(precision+recall) if (precision+recall) else 0
-            acc = (tp+tn)/(tp+tn+fp+fn) if (tp+tn+fp+fn) else 0
+            cm = confusion_matrix(sub["y_true"], sub["y_pred"], labels=[1, 0])
+            tn, fp, fn, tp = cm.ravel() if cm.size == 4 else (0, 0, 0, 0)
+            precision = tp / (tp + fp) if (tp + fp) else 0.0
+            recall = tp / (tp + fn) if (tp + fn) else 0.0
+            f1 = 2 * precision * recall / (precision + recall) if (precision + recall) else 0.0
+            acc = (tp + tn) / (tp + tn + fp + fn) if (tp + tn + fp + fn) else 0.0
             group_rows.append({
                 "split": split_name, "group_by": group_col, "group": group,
                 "n": len(sub),
                 "precision": precision, "recall": recall, "f1": f1, "accuracy": acc,
-                "tp": tp,"fp":fp,"fn":fn,"tn":tn
+                "tp": tp, "fp": fp, "fn": fn, "tn": tn,
             })
     groups_df = pd.DataFrame(group_rows)
 
