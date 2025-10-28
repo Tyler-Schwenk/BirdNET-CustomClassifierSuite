@@ -115,10 +115,15 @@ def main():
                         def extract_stage(name):
                             import re
                             name_lower = str(name).lower()
-                            if 'stage' in name_lower:
-                                match = re.search(r'stage\d+[a-z]*(?:_sweep)?', name_lower)
-                                if match:
-                                    return match.group(0)
+                            # Standard 'stage' pattern
+                            m = re.search(r'stage\d+[a-z]*(?:_sweep)?', name_lower)
+                            if m:
+                                return m.group(0)
+                            # Stage0 / legacy names (e.g., '000_OldModel2024', leading zeros)
+                            if name_lower.startswith('stage0'):
+                                return 'stage0'
+                            if re.match(r'^(?:0+[_-]|0+$)', name_lower) or 'oldmodel' in name_lower:
+                                return 'stage0'
                             return None
                         df_to_use['__stage_temp'] = df_to_use['experiment.name'].apply(extract_stage)
                         df_to_use = df_to_use[df_to_use['__stage_temp'].isin(state.sweep_filter)]

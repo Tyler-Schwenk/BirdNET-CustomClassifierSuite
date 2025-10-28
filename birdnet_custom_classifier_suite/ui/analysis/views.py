@@ -190,13 +190,17 @@ def metric_controls(state: UIState, df: Optional[pd.DataFrame] = None) -> None:
             if 'experiment.name' in cols:
                 def extract_stage(name):
                     """Extract stage prefix like 'stage3', 'stage3b', 'stage1_sweep' from experiment name."""
+                    import re
                     name_lower = str(name).lower()
-                    if 'stage' in name_lower:
-                        # Find 'stage' and capture following characters until underscore or end
-                        import re
-                        match = re.search(r'stage\d+[a-z]*(?:_sweep)?', name_lower)
-                        if match:
-                            return match.group(0)
+                    # 1) Standard pattern: 'stage{num}{opt_letter}' and optional '_sweep'
+                    m = re.search(r'stage\d+[a-z]*(?:_sweep)?', name_lower)
+                    if m:
+                        return m.group(0)
+                    # 2) Legacy/Stage0 patterns: names like '000_OldModel2024', 'stage0_*', or leading zeros
+                    if name_lower.startswith('stage0'):
+                        return 'stage0'
+                    if re.match(r'^(?:0+[_-]|0+$)', name_lower) or 'oldmodel' in name_lower:
+                        return 'stage0'
                     return None
                 
                 stages = df['experiment.name'].apply(extract_stage).dropna().unique()

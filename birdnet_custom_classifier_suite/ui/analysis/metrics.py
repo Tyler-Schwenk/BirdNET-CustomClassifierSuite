@@ -91,6 +91,18 @@ def summarize_metrics(
         if top_n:
             top = top.head(top_n)
 
+        # Helper to safely convert values that may be pd.NA to floats
+        def _to_float(val, default_if_nan=None):
+            try:
+                if pd.isna(val):
+                    if default_if_nan is None:
+                        # Use NaN (float) to represent missing numeric
+                        return float('nan')
+                    return default_if_nan
+                return float(val)
+            except Exception:
+                return float('nan') if default_if_nan is None else default_if_nan
+
         # Convert to strongly-typed summaries
         config_summaries = []
         for _, row in top.iterrows():
@@ -101,12 +113,28 @@ def summarize_metrics(
                     if f"{base}_std" in row.index:
                         cv_col = f"{base}_cv"
                         stability_col = f"{base}_stability"
+                        # Treat NaN std as 0 for single-seed stability; keep mean as NaN when missing
+                        mean_val = _to_float(row[col])
+                        std_val = _to_float(row[f"{base}_std"], default_if_nan=0.0)
+                        cv_val = None
+                        stab_val = None
+                        if cv_col in row.index and not pd.isna(row[cv_col]):
+                            try:
+                                cv_val = float(row[cv_col])
+                            except Exception:
+                                cv_val = None
+                        if stability_col in row.index and not pd.isna(row[stability_col]):
+                            try:
+                                stab_val = float(row[stability_col])
+                            except Exception:
+                                stab_val = None
+
                         metrics[base] = MetricSummary(
                             name=base,
-                            mean=float(row[col]),
-                            std=float(row[f"{base}_std"]),
-                            cv=float(row[cv_col]) if cv_col in row.index else None,
-                            stability=float(row[stability_col]) if stability_col in row.index else None,
+                            mean=mean_val,
+                            std=std_val,
+                            cv=cv_val,
+                            stability=stab_val,
                         )
 
             # Get config values from original df for this signature
