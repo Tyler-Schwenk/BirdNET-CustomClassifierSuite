@@ -54,18 +54,32 @@ def collect_experiments(exp_root: str, out_csv: str = "results/all_experiments.c
 
     df_new = pd.DataFrame(rows)
 
-    key_cols = [
-        c for c in ["experiment.name", "metadata.git_commit", "metadata.timestamp"]
-        if c in df_new.columns
+    # Minimal schema columns (from all_experiments_minimal.csv)
+    minimal_cols = [
+        "experiment.name","experiment.seed","training.epochs","training.batch_size","training.threads","training.val_split","training.autotune",
+        "dataset.manifest","dataset.filters.include_negatives","dataset.filters.balance","dataset.filters.max_per_class","dataset.filters.quality",
+        "dataset.filters.call_type","dataset.filters.source_root","dataset.filters.splits","dataset.filters.manifest","dataset.filters.seed",
+        "metrics.iid.best_f1.threshold","metrics.iid.best_f1.precision","metrics.iid.best_f1.recall","metrics.iid.best_f1.f1","metrics.iid.best_f1.accuracy",
+        "metrics.iid.auroc","metrics.iid.auprc","metrics.ood.best_f1.threshold","metrics.ood.best_f1.precision","metrics.ood.best_f1.recall",
+        "metrics.ood.best_f1.f1","metrics.ood.best_f1.accuracy","metrics.ood.auroc","metrics.ood.auprc","metadata.timestamp","metadata.git_commit",
+        "training_args.fmin","training_args.fmax","analyzer_args.fmin","analyzer_args.fmax","analyzer_args.sensitivity","training_args.overlap",
+        "analyzer_args.overlap","training_args.focal-loss","training_args.focal-loss-gamma","training_args.focal-loss-alpha","training_args.learning_rate",
+        "training.dropout","training_args.hidden_units","training_args.mixup","training_args.dropout","training_args.label_smoothing",
+        "training_args.upsampling_mode","training_args.upsampling_ratio","training_args.batch_size","training_args.focal_loss","training_args.epochs"
     ]
+
+    # Only keep minimal columns
+    df_new = df_new.loc[:, [c for c in minimal_cols if c in df_new.columns]]
+
+    key_cols = [c for c in ["experiment.name", "metadata.git_commit", "metadata.timestamp"] if c in df_new.columns]
 
     if out_path.exists():
         df_old = pd.read_csv(out_path)
+        df_old = df_old.loc[:, [c for c in minimal_cols if c in df_old.columns]]
         df_combined = pd.concat([df_old, df_new], ignore_index=True)
         if key_cols:
             df_combined = df_combined.drop_duplicates(subset=key_cols, keep="last")
         else:
-            # No keys available; just drop exact duplicate rows
             df_combined = df_combined.drop_duplicates(keep="last")
     else:
         if key_cols:
@@ -73,6 +87,8 @@ def collect_experiments(exp_root: str, out_csv: str = "results/all_experiments.c
         else:
             df_combined = df_new.drop_duplicates(keep="last")
 
+    # Write only minimal columns, in order
+    df_combined = df_combined.loc[:, [c for c in minimal_cols if c in df_combined.columns]]
     df_combined.to_csv(out_path, index=False)
     print(f"Wrote {len(df_combined)} experiments to {out_path.resolve()}")
 
