@@ -16,7 +16,13 @@ dependencies = [
     "numpy",
     "tqdm",
     "matplotlib",
+    "streamlit",
+    "streamlit-aggrid",
 ]
+
+[project.scripts]
+birdnet-analyze = "birdnet_custom_classifier_suite.cli.analyze:main"
+birdnet-ui = "birdnet_custom_classifier_suite.cli.ui:main"
 
 [build-system]
 requires = ["setuptools", "wheel"]

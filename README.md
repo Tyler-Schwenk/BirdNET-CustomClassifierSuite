@@ -14,9 +14,12 @@ to inference, evaluation, and multi-config sweep generation.
 BirdNET-CustomClassifierSuite/
 │
 ├── birdnet_custom_classifier_suite/   ← Python package
+│   ├── cli/                           ← Console commands (birdnet-analyze, birdnet-ui)
 │   ├── pipeline/                      ← Core training + inference pipeline
 │   ├── sweeps/                        ← Sweep generation + batch execution
 │   ├── eval_toolkit/                  ← Aggregation and review utilities
+│   ├── ui/                            ← Streamlit UI components
+│   │   └── sweeps/                    ← Modular Sweeps tab components
 │   └── utils/
 │
 ├── config/
@@ -31,25 +34,62 @@ BirdNET-CustomClassifierSuite/
 │       │   └── manifest.csv
 │
 ├── experiments/                       ← Pipeline outputs (models, evals)
-├── scripts/                           ← Environment and utility scripts
-│   └── setup_env.ps1
+├── scripts/                           ← Local scripts (dev convenience)
+│   ├── setup_env.ps1
+│   └── streamlit_app.py               ← Streamlit app entry (used by birdnet-ui)
 └── requirements.txt
 ```
 
 ---
 
-## Environment Setup (Windows)
+## Installation
+
+Recommended (development/editable install):
 
 ```powershell
-# 1. Create and activate venv
-powershell -ExecutionPolicy Bypass -File scripts/setup_env.ps1
-
-# 2. Activate later sessions manually
+python -m venv .venv
 .\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install -e .
 ```
 
-This script installs all Python dependencies, clones BirdNET-Analyzer locally under `external/`,  
-and installs this project in editable mode.
+Windows convenience script (sets up venv and deps):
+
+```powershell
+# Create and activate venv, install deps, link package
+powershell -ExecutionPolicy Bypass -File scripts/setup_env.ps1
+```
+
+This installs all dependencies and this project in editable mode. After install, the following
+console commands are available:
+
+- `birdnet-analyze` — Analyze experiments and generate leaderboards
+- `birdnet-ui` — Launch the Streamlit app (Evaluate + Sweeps)
+
+If you prefer not to install console scripts, you can still run via `python -m ...` (see below).
+
+---
+
+## Quick Start
+
+Analyze experiments and generate leaderboards:
+
+```powershell
+birdnet-analyze --stage stage4_ --precision-floor 0.9 --top-n 20
+```
+
+Launch the UI:
+
+```powershell
+birdnet-ui
+```
+
+Module alternatives:
+
+```powershell
+python -m birdnet_custom_classifier_suite.cli.analyze --stage stage4_
+python -m birdnet_custom_classifier_suite.cli.ui
+```
 
 ---
 
@@ -149,13 +189,14 @@ Outputs appear in `experiments/<experiment_name>/`.
 
 Once your sweeps finish, use the evaluation toolkit to summarize results:
 
+Use either the UI (Evaluate tab) or CLI:
+
 ```powershell
-python -m birdnet_custom_classifier_suite.eval_toolkit.aggregate experiments/ --out stage4sweep.csv
-python -m birdnet_custom_classifier_suite.eval_toolkit.review stage4sweep.csv
+# CLI — collect experiments and create a master results CSV, then rank and report
+birdnet-analyze --stage stage4_ --precision-floor 0.9 --top-n 20
 ```
 
-This produces a combined CSV of all runs and can rank configs by metrics such as  
-`ood.best_f1.f1`, precision, or recall.
+This produces a combined CSV of all runs and writes leaderboards to `results/leaderboards/`.
 
 ---
 
@@ -164,7 +205,7 @@ This produces a combined CSV of all runs and can rank configs by metrics such as
 - **Track:**  
   - `config/base.yaml`  
   - all `config/sweep_specs/*.yaml`  
-  - `scripts/setup_env.ps1`  
+  - `scripts/setup_env.ps1` (optional)  
   - everything inside `birdnet_custom_classifier_suite/`
 
 - **Ignore:**  
@@ -192,6 +233,22 @@ This runs a 4-config micro sweep (1 epoch each) to verify your setup end-to-end.
 - YAML validation schema  
 - CLI presets for common stage types (e.g. “Stage 4 Robustness”)  
 - Cross-platform setup scripts (Linux/macOS)
+
+---
+
+## Distribution (PyPI vs GitHub)
+
+- PyPI packages are immutable snapshots — they do not auto-track GitHub. Publish to **TestPyPI** for early testers, and to **PyPI** when ready.
+- GitHub installs are great during development:
+
+```powershell
+pip install git+https://github.com/<owner>/<repo>.git@main
+```
+
+Recommended release flow:
+1. Tag a GitHub release (e.g., `v0.1.0`)
+2. GitHub Action builds and publishes to TestPyPI
+3. Promote to PyPI when validated
 
 ---
 
