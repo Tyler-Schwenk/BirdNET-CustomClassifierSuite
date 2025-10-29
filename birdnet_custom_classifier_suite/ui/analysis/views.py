@@ -39,12 +39,13 @@ def _dataframe_full_width(data: pd.DataFrame, height: int | None = None):
     """Render a dataframe using the new Streamlit width API when available,
     with graceful fallback for older versions.
 
-    - Preferred: width="container" (new API) to stretch to the container width
+    - Preferred: width="stretch" (new API) to stretch to the container width
     - Fallback: use_container_width=True (deprecated in newer versions)
     """
     try:
         # Newer Streamlit versions deprecate use_container_width in favor of width
-        st.dataframe(data, width="container", height=height)
+        # Valid width values: integer pixels, 'stretch', or 'content'.
+        st.dataframe(data, width="stretch", height=height)
     except TypeError:
         # Older versions don't accept width keyword
         st.dataframe(data, use_container_width=True, height=height)
@@ -180,33 +181,35 @@ def metric_controls(state: UIState, df: Optional[pd.DataFrame] = None, container
         state: Current UI state
     """
     import streamlit as st
-    panel = container if container is not None else st
-    with panel.expander("Analysis Options", expanded=True):
-        state.metric_prefix = panel.selectbox(
+    parent = container if container is not None else st
+    # Render expander within the provided container, using st.expander to ensure compatibility
+    with parent:
+        with st.expander("Analysis Options", expanded=True):
+            state.metric_prefix = st.selectbox(
             "Metric group",
             options=[m.value for m in MetricGroup],
             index=0,
         )
-        state.top_n = panel.number_input(
+            state.top_n = st.number_input(
             "Top N",
             min_value=1,
             max_value=200,
             value=state.top_n,
             step=1,
         )
-        precision_input = panel.number_input(
+            precision_input = st.number_input(
             "Precision floor (0-1 or percent)",
             min_value=0.0,
             max_value=100.0,
             value=0.0,
             step=0.01,
         )
-        state.precision_floor = precision_input if precision_input > 0 else None
+            state.precision_floor = precision_input if precision_input > 0 else None
 
         # Optional: dataset filter controls
         if df is not None and not df.empty:
-            panel.markdown("---")
-            panel.write("Filters")
+            st.markdown("---")
+            st.write("Filters")
 
             def _find_col(columns, prefer: List[str]) -> Optional[str]:
                 # exact match first
@@ -235,7 +238,7 @@ def metric_controls(state: UIState, df: Optional[pd.DataFrame] = None, container
 
             if quality_col:
                 q_vals = sorted(pd.Series(df[quality_col].dropna().unique()).tolist())
-                selected = panel.multiselect(
+                selected = st.multiselect(
                     f"Quality ({quality_col})",
                     options=q_vals,
                     default=state.quality_filter or []
@@ -244,7 +247,7 @@ def metric_controls(state: UIState, df: Optional[pd.DataFrame] = None, container
 
             if balance_col:
                 b_vals = sorted(pd.Series(df[balance_col].dropna().unique()).tolist())
-                selected = panel.multiselect(
+                selected = st.multiselect(
                     f"Balance ({balance_col})",
                     options=b_vals,
                     default=state.balance_filter or []
@@ -271,7 +274,7 @@ def metric_controls(state: UIState, df: Optional[pd.DataFrame] = None, container
                 stages = df['experiment.name'].apply(extract_stage).dropna().unique()
                 if len(stages) > 0:
                     stage_vals = sorted(stages.tolist())
-                    selected = panel.multiselect(
+                    selected = st.multiselect(
                         "Stage/Sweep",
                         options=stage_vals,
                         default=state.sweep_filter or []

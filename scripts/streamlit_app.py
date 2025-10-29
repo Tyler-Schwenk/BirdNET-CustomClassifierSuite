@@ -196,9 +196,24 @@ def main():
     with sweeps_tab:
         st.header("Design and Run Sweeps")
         st.caption("Fill in parameters to generate a sweep spec and configs, then run the sweep.")
+        st.markdown("📖 [BirdNET-Analyzer CLI Arguments Documentation](https://birdnet-team.github.io/BirdNET-Analyzer/usage/cli.html#birdnet_analyzer.cli-analyzer_parser-positional-arguments)")
 
         from pathlib import Path
         import yaml
+
+        # Action buttons at top for immediate visibility
+        btn_cols = st.columns(3)
+        with btn_cols[0]:
+            save_spec_btn = st.button("💾 Save spec YAML", key="save_spec_top", help="Save the sweep specification to config/sweep_specs/<name>.yaml for later use")
+        with btn_cols[1]:
+            gen_configs_btn = st.button("⚙️ Generate configs", key="gen_configs_top", help="Generate individual experiment YAML configs and manifest.csv in the output folder")
+        with btn_cols[2]:
+            run_sweep_btn = st.button("▶️ Run sweep now", key="run_sweep_top", help="Generate configs and immediately run all experiments in the sweep")
+        
+        # Placeholder for action feedback at top
+        feedback_placeholder = st.empty()
+
+        st.markdown("---")
 
         colA, colB = st.columns(2)
         with colA:
@@ -218,19 +233,35 @@ def main():
             mixup = st.checkbox("mixup", value=False)
             label_smoothing = st.checkbox("label_smoothing", value=False)
             focal_loss = st.checkbox("focal_loss", value=False)
+            
+            # Conditional focal loss params
+            if focal_loss:
+                focal_loss_gamma = st.number_input("focal_loss_gamma", min_value=0.0, value=2.0, step=0.1, help="Focusing parameter for focal loss")
+                focal_loss_alpha = st.number_input("focal_loss_alpha", min_value=0.0, max_value=1.0, value=0.25, step=0.05, help="Class balance parameter for focal loss")
+            else:
+                focal_loss_gamma = 2.0
+                focal_loss_alpha = 0.25
+            
+            # Advanced frequency/overlap params
+            with st.expander("Advanced audio parameters", expanded=False):
+                fmin = st.number_input("fmin (Hz)", min_value=0, value=0, step=100, help="Minimum frequency for bandpass filter")
+                fmax = st.number_input("fmax (Hz)", min_value=0, value=15000, step=100, help="Maximum frequency for bandpass filter")
+                overlap = st.number_input("overlap", min_value=0.0, max_value=2.9, value=0.0, step=0.1, help="Overlap of prediction segments")
 
         with colB:
             st.subheader("Axes (values to sweep)")
             seeds_str = st.text_input("seed values (comma-separated)", value="123", key="sweep_seeds")
-            hidden_units_str = st.text_input("hidden_units (comma-separated)", value="0,128,512", key="sweep_hidden_units")
+            hidden_units_str = st.text_input("hidden_units (comma-separated)", value="0,128,512", key="sweep_hidden_units", help="Use 0 for no hidden layer")
             dropout_axis_str = st.text_input("dropout values (comma-separated)", value="0.0,0.25", key="sweep_dropout")
             lr_axis_str = st.text_input("learning_rate values (comma-separated)", value="0.0001,0.0005,0.001", key="sweep_lr")
             # batch_size sweep removed; only in base_params
             st.markdown("**Quality sweep options**")
-            quality_combos = st.text_area(
-                "Enter quality combinations (comma-separated, one combo per line)",
-                value="high\nmedium\nlow\nhigh,medium\nhigh,medium,low",
-                key="sweep_quality_combos"
+            quality_combos_raw = st.multiselect(
+                "Select quality combinations",
+                options=["high", "medium", "low", "high,medium", "high,low", "medium,low", "high,medium,low"],
+                default=["high", "medium", "low", "high,medium"],
+                key="sweep_quality_combos",
+                help="Valid quality values: high, medium, low. Select one or more combinations to sweep over."
             )
             balance_opts = st.multiselect("balance options", options=[True, False], default=[True], key="sweep_balance")
             up_mode_opts = st.multiselect("upsampling_mode options", options=["none", "repeat", "linear"], default=["repeat"], key="sweep_upmode")
@@ -260,9 +291,14 @@ def main():
             "mixup": bool(mixup),
             "label_smoothing": bool(label_smoothing),
             "focal_loss": bool(focal_loss),
+            "focal_loss_gamma": float(focal_loss_gamma),
+            "focal_loss_alpha": float(focal_loss_alpha),
             "dropout": _parse_float(dropout, 0.25),
             "learning_rate": _parse_float(learning_rate, 0.0005),
             "batch_size": int(base_batch_size),
+            "fmin": int(fmin),
+            "fmax": int(fmax),
+            "overlap": float(overlap),
         }
 
         axes = {}
@@ -279,9 +315,10 @@ def main():
         if lr_axis:
             axes["learning_rate"] = lr_axis
         # batch_size sweep removed; only in base_params
+        # Parse quality combinations from multiselect (already comma-separated strings)
         quality_axes = []
-        for line in quality_combos.strip().splitlines():
-            combo = [q.strip() for q in line.split(",") if q.strip()]
+        for combo_str in quality_combos_raw:
+            combo = [q.strip() for q in combo_str.split(",") if q.strip()]
             if combo:
                 quality_axes.append(combo)
         if quality_axes:
@@ -294,7 +331,27 @@ def main():
         if up_ratio_axis:
             axes["upsampling_ratio"] = up_ratio_axis
 
+        # Validate quality values
+        valid_quality = {"high", "medium", "low"}
+        invalid_qualities = []
+        for combo in quality_axes:
+            for q in combo:
+                if q not in valid_quality:
+                    invalid_qualities.append(q)
+        if invalid_qualities:
+            st.warning(f"⚠️ Invalid quality values detected: {', '.join(set(invalid_qualities))}. Valid values are: high, medium, low")
+
+        # Calculate estimated config count
+        config_count = 1
+        for axis_values in axes.values():
+            config_count *= len(axis_values)
+        
         st.markdown("### Preview spec")
+        st.info(f"📊 This sweep will generate **{config_count} configurations**")
+        
+        if config_count > 500:
+            st.warning(f"⚠️ Large sweep detected ({config_count} configs). Consider reducing axis combinations or running in batches.")
+        
         preview = {
             "stage": int(stage),
             "out_dir": out_dir,
@@ -303,46 +360,45 @@ def main():
         }
         st.code(yaml.safe_dump(preview, sort_keys=False), language="yaml")
 
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            if st.button("Save spec YAML"):
-                spec_dir.mkdir(parents=True, exist_ok=True)
-                with open(spec_path, "w", encoding="utf-8") as f:
-                    yaml.safe_dump(preview, f, sort_keys=False)
-                st.success(f"Saved spec to {spec_path}")
-        with c2:
-            if st.button("Generate configs (YAMLs + manifest)"):
-                try:
-                    from birdnet_custom_classifier_suite.sweeps.sweep_generator import generate_sweep
-                    Path(out_dir).mkdir(parents=True, exist_ok=True)
-                    generate_sweep(stage=int(stage), out_dir=str(out_dir), axes=axes, base_params=base_params)
-                    st.success(f"Generated configs at {out_dir}")
-                except Exception as e:
-                    st.error(f"Failed to generate sweep: {e}")
-        with c3:
-            if st.button("Run sweep now"):
-                try:
-                    import subprocess, sys
-                    cmd = [
-                        sys.executable,
-                        "-m",
-                        "birdnet_custom_classifier_suite.sweeps.run_sweep",
-                        str(out_dir),
-                        "--base-config",
-                        "config/base.yaml",
-                        "--experiments-root",
-                        "experiments",
-                    ]
-                    st.write("Running:", " ".join(cmd))
-                    proc = subprocess.run(cmd, capture_output=True, text=True)
-                    st.code(proc.stdout or "", language="bash")
-                    if proc.returncode != 0:
-                        st.error("Sweep run failed.")
-                        st.code(proc.stderr or "", language="bash")
-                    else:
-                        st.success("Sweep finished or started successfully (see logs above).")
-                except Exception as e:
-                    st.error(f"Failed to run sweep: {e}")
+        # Handle button actions (triggered at top)
+        if save_spec_btn:
+            spec_dir.mkdir(parents=True, exist_ok=True)
+            with open(spec_path, "w", encoding="utf-8") as f:
+                yaml.safe_dump(preview, f, sort_keys=False)
+            feedback_placeholder.success(f"✅ Saved spec to {spec_path}")
+        
+        if gen_configs_btn:
+            try:
+                from birdnet_custom_classifier_suite.sweeps.sweep_generator import generate_sweep
+                Path(out_dir).mkdir(parents=True, exist_ok=True)
+                generate_sweep(stage=int(stage), out_dir=str(out_dir), axes=axes, base_params=base_params)
+                feedback_placeholder.success(f"✅ Generated configs at {out_dir}")
+            except Exception as e:
+                feedback_placeholder.error(f"❌ Failed to generate sweep: {e}")
+        
+        if run_sweep_btn:
+            try:
+                import subprocess, sys
+                cmd = [
+                    sys.executable,
+                    "-m",
+                    "birdnet_custom_classifier_suite.sweeps.run_sweep",
+                    str(out_dir),
+                    "--base-config",
+                    "config/base.yaml",
+                    "--experiments-root",
+                    "experiments",
+                ]
+                feedback_placeholder.write("Running: " + " ".join(cmd))
+                proc = subprocess.run(cmd, capture_output=True, text=True)
+                st.code(proc.stdout or "", language="bash")
+                if proc.returncode != 0:
+                    feedback_placeholder.error("❌ Sweep run failed.")
+                    st.code(proc.stderr or "", language="bash")
+                else:
+                    feedback_placeholder.success("✅ Sweep finished or started successfully (see logs above).")
+            except Exception as e:
+                feedback_placeholder.error(f"❌ Failed to run sweep: {e}")
 
 
 if __name__ == "__main__":
