@@ -17,10 +17,16 @@ def generate_sweep(stage:int, out_dir:str, axes:dict, base_params:dict, prefix:s
 
     def make_cfg(idx, combo):
         exp_name = f"{prefix}{stage}_{idx:03d}"
+        # Resolve batch size from combo override if present
+        bs = combo.get("batch_size", base_params.get("batch_size", 32))
+
+        # Build training_args by overlaying axis values (excluding non-args keys)
+        arg_overrides_keys = set(combo.keys()) - {"seed", "quality", "balance", "upsampling_mode", "upsampling_ratio"}
+        arg_overrides = {k: combo[k] for k in arg_overrides_keys}
         cfg = {
             "experiment": {"name": exp_name, "seed": combo["seed"]},
-            "training": {"batch_size": base_params.get("batch_size", 32)},
-            "inference": {"batch_size": base_params.get("batch_size", 32)},
+            "training": {"batch_size": bs},
+            "inference": {"batch_size": bs},
             "training_package": {
                 "include_negatives": True,
                 "balance": combo["balance"],
@@ -28,6 +34,7 @@ def generate_sweep(stage:int, out_dir:str, axes:dict, base_params:dict, prefix:s
             },
             "training_args": {
                 **base_params,
+                **arg_overrides,
                 "upsampling_mode": combo["upsampling_mode"],
                 "upsampling_ratio": combo["upsampling_ratio"],
             },

@@ -27,8 +27,16 @@ axes:
   hidden_units: [0, 128, 512]
   dropout: [0.0, 0.25]
   learning_rate: [0.0001, 0.0005, 0.001]
-  batch_size: [16, 32]
   seed: [123]
+  quality:
+    - [high]
+    - [medium]
+    - [low]
+    - [high, medium]
+    - [high, medium, low]
+  balance: [true]
+  upsampling_mode: ["none", "repeat", "linear"]
+  upsampling_ratio: [0.0, 0.25]
 
 # ===========================================================
 # Base Parameters

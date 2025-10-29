@@ -35,6 +35,21 @@ from birdnet_custom_classifier_suite.ui.common.types import (
 )
 
 
+def _dataframe_full_width(data: pd.DataFrame, height: int | None = None):
+    """Render a dataframe using the new Streamlit width API when available,
+    with graceful fallback for older versions.
+
+    - Preferred: width="container" (new API) to stretch to the container width
+    - Fallback: use_container_width=True (deprecated in newer versions)
+    """
+    try:
+        # Newer Streamlit versions deprecate use_container_width in favor of width
+        st.dataframe(data, width="container", height=height)
+    except TypeError:
+        # Older versions don't accept width keyword
+        st.dataframe(data, use_container_width=True, height=height)
+
+
 def data_loader(state: UIState,
                 on_load: Optional[Callable[[pd.DataFrame], None]] = None) -> None:
     """Render the data source selector and load button.
@@ -108,26 +123,31 @@ def data_loader(state: UIState,
                     on_load(state.results_df)
             except Exception as e:
                 st.error(f"Failed to load results: {e}")
-def data_loader(state: UIState) -> None:
-    """Sidebar loader for results CSVs. Allows switching between any results/*.csv file and custom uploads."""
+def data_loader(state: UIState, container=None) -> None:
+    """Inline loader for results CSVs. Lists results/*.csv and supports uploads.
+
+    Args:
+        state: UI state
+        container: Optional Streamlit container/column to render into. Defaults to main area.
+    """
     import streamlit as st
-    import os
     from pathlib import Path
+    panel = container if container is not None else st
     results_dir = Path('results')
     # List all CSVs in results/
     csv_files = sorted([f for f in results_dir.glob('*.csv') if f.is_file()])
-    st.sidebar.markdown("**Select results file**")
+    panel.markdown("**Select results file**")
     file_options = {str(f): f for f in csv_files}
     if not file_options:
-        st.sidebar.warning("No CSV files found in results/.")
+        panel.warning("No CSV files found in results/.")
         return
-    selected_file = st.sidebar.selectbox(
+    selected_file = panel.selectbox(
         "Results file",
         options=list(file_options.keys()),
         index=0,
     )
     # Custom file upload
-    uploaded_file = st.sidebar.file_uploader("Or upload a CSV", type=["csv"])
+    uploaded_file = panel.file_uploader("Or upload a CSV", type=["csv"])
     # Load logic
     load_path = None
     if uploaded_file is not None:
@@ -136,10 +156,10 @@ def data_loader(state: UIState) -> None:
             df = pd.read_csv(uploaded_file)
             state.results_df = df
             state.data_source = uploaded_file.name
-            st.success(f"✓ Loaded {len(df)} rows from uploaded file: {uploaded_file.name}")
+            panel.success(f"✓ Loaded {len(df)} rows from uploaded file: {uploaded_file.name}")
             return
         except Exception as e:
-            st.error(f"Failed to load uploaded CSV: {e}")
+            panel.error(f"Failed to load uploaded CSV: {e}")
             return
     else:
         load_path = file_options[selected_file]
@@ -148,31 +168,33 @@ def data_loader(state: UIState) -> None:
             df = pd.read_csv(load_path)
             state.results_df = df
             state.data_source = load_path
-            st.success(f"✓ Loaded {len(df)} rows from {load_path}")
+            panel.success(f"✓ Loaded {len(df)} rows from {load_path}")
         except Exception as e:
-            st.error(f"Failed to load selected CSV: {e}")
+            panel.error(f"Failed to load selected CSV: {e}")
 
 
-def metric_controls(state: UIState, df: Optional[pd.DataFrame] = None) -> None:
+def metric_controls(state: UIState, df: Optional[pd.DataFrame] = None, container=None) -> None:
     """Render metric selection and filtering controls.
     
     Args:
         state: Current UI state
     """
-    with st.sidebar.expander("Analysis Options", expanded=True):
-        state.metric_prefix = st.selectbox(
+    import streamlit as st
+    panel = container if container is not None else st
+    with panel.expander("Analysis Options", expanded=True):
+        state.metric_prefix = panel.selectbox(
             "Metric group",
             options=[m.value for m in MetricGroup],
             index=0,
         )
-        state.top_n = st.number_input(
+        state.top_n = panel.number_input(
             "Top N",
             min_value=1,
             max_value=200,
             value=state.top_n,
             step=1,
         )
-        precision_input = st.number_input(
+        precision_input = panel.number_input(
             "Precision floor (0-1 or percent)",
             min_value=0.0,
             max_value=100.0,
@@ -183,8 +205,8 @@ def metric_controls(state: UIState, df: Optional[pd.DataFrame] = None) -> None:
 
         # Optional: dataset filter controls
         if df is not None and not df.empty:
-            st.markdown("---")
-            st.write("Filters")
+            panel.markdown("---")
+            panel.write("Filters")
 
             def _find_col(columns, prefer: List[str]) -> Optional[str]:
                 # exact match first
@@ -213,7 +235,7 @@ def metric_controls(state: UIState, df: Optional[pd.DataFrame] = None) -> None:
 
             if quality_col:
                 q_vals = sorted(pd.Series(df[quality_col].dropna().unique()).tolist())
-                selected = st.multiselect(
+                selected = panel.multiselect(
                     f"Quality ({quality_col})",
                     options=q_vals,
                     default=state.quality_filter or []
@@ -222,7 +244,7 @@ def metric_controls(state: UIState, df: Optional[pd.DataFrame] = None) -> None:
 
             if balance_col:
                 b_vals = sorted(pd.Series(df[balance_col].dropna().unique()).tolist())
-                selected = st.multiselect(
+                selected = panel.multiselect(
                     f"Balance ({balance_col})",
                     options=b_vals,
                     default=state.balance_filter or []
@@ -249,7 +271,7 @@ def metric_controls(state: UIState, df: Optional[pd.DataFrame] = None) -> None:
                 stages = df['experiment.name'].apply(extract_stage).dropna().unique()
                 if len(stages) > 0:
                     stage_vals = sorted(stages.tolist())
-                    selected = st.multiselect(
+                    selected = panel.multiselect(
                         "Stage/Sweep",
                         options=stage_vals,
                         default=state.sweep_filter or []
@@ -258,7 +280,9 @@ def metric_controls(state: UIState, df: Optional[pd.DataFrame] = None) -> None:
 
 
 def leaderboard(summaries: List[ConfigSummary],
-                on_select: Optional[Callable[[str], None]] = None) -> None:
+                on_select: Optional[Callable[[str], None]] = None,
+                show_aggrid_debug: bool = False,
+                debug_container=None) -> None:
     """Render the leaderboard table with top configurations.
 
     This renders an interactive table using AgGrid when available. Selecting
@@ -514,14 +538,9 @@ def leaderboard(summaries: List[ConfigSummary],
         )
 
         # Optional debug dump of the raw AgGrid response to help diagnose selection
-        # payload shapes. Turn on from the sidebar if you need to inspect what
-        # the component returns when rows are clicked.
-        # Debug output with a unique checkbox key
-        show_debug = st.sidebar.checkbox(
-            'Show AgGrid response',
-            value=False,
-            key='aggrid_debug_checkbox'
-        )
+        # payload shapes. Controlled by a checkbox rendered by the caller (e.g., Evaluate controls panel).
+        panel = debug_container if debug_container is not None else st
+        show_debug = bool(show_aggrid_debug)
         
         try:
             if show_debug:
@@ -541,10 +560,10 @@ def leaderboard(summaries: List[ConfigSummary],
                     'selected': getattr(grid_response, 'selected', None),
                     'selection_changed': getattr(grid_response, 'selection_changed', None),
                 }
-                st.write("AgGrid Response Debug:")
-                st.json(debug_info)
+                panel.write("AgGrid Response Debug:")
+                panel.json(debug_info)
         except Exception as e:
-            st.sidebar.error(f"Debug info error: {str(e)}")
+            panel.error(f"Debug info error: {str(e)}")
             pass
 
         # Handle selection using the observed format: selected_rows as list of dicts
@@ -563,11 +582,11 @@ def leaderboard(summaries: List[ConfigSummary],
                     if sig and not pd.isna(sig):
                         on_select(sig)
                         if show_debug:
-                            st.sidebar.write(f"Selected signature: {sig}")
+                            panel.write(f"Selected signature: {sig}")
     else:
         # Fallback to simple display + selectbox
         st.write("Click a signature to see details:")
-        st.dataframe(df, use_container_width=True, height=min(35 * (len(df) + 1), 400))
+        _dataframe_full_width(df, height=min(35 * (len(df) + 1), 400))
         if on_select:
             selected = st.selectbox("Or select a signature here:", options=df['Signature'].tolist())
             if selected:
@@ -805,6 +824,6 @@ def signature_details(breakdown: Optional[PerRunBreakdown]) -> None:
                     rename_map[m] = pretty
 
             display = display.rename(columns=rename_map).rename(columns={"experiment.name": "Experiment"})
-            st.dataframe(display, use_container_width=True, height=min(35 * (len(display) + 1), 400))
+            _dataframe_full_width(display, height=min(35 * (len(display) + 1), 400))
         else:
             st.info("No individual runs found for this signature.")
