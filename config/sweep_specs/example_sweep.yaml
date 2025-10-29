@@ -14,7 +14,7 @@
 # Stage identifier (for naming only)
 stage: 1
 
-# Directory where sweep YAMLs and manifest.csv will be created
+# Directory where sweep YAMLs will be created (including per-sweep base.yaml)
 out_dir: "config/sweeps/example_sweep"
 
 # ===========================================================
@@ -61,6 +61,6 @@ base_params:
 # varying hidden_units, dropout, learning_rate, and batch_size.
 #
 # All other BirdNET parameters (fmin, fmax, overlap, etc.)
-# should be inherited from config/base.yaml when running
-# the training pipeline.
+# can be set in base_params. The generator writes them into
+# the per-sweep base.yaml used by the pipeline.
 # ===========================================================

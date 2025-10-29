@@ -19,7 +19,7 @@ def generate_sweep(stage:int, out_dir:str, axes:dict, base_params:dict, prefix:s
     # Note: No manifest.csv is written; configs are discoverable via folder globbing
 
     # --- 1) Build per-sweep base.yaml from base_params ---
-    # Base skeleton (no global base required)
+    # Construct from a minimal skeleton only; no global base.yaml is read.
     base_cfg = {
         "dataset": {
             "audio_root": "AudioData",

@@ -107,13 +107,22 @@ def build_inference_cmd(cfg, exp_dir, split: str):
 
 def main():
     ap = argparse.ArgumentParser(description="BirdNET Frog Training pipeline")
-    ap.add_argument("--base-config", type=Path, default=Path("config/base.yaml"))
+    ap.add_argument("--base-config", type=Path, default=None, help="Path to base.yaml; if omitted and --override-config is provided, inferred as <override-config>/../base.yaml")
     ap.add_argument("--override-config", type=Path)
     ap.add_argument("--skip-training", action="store_true", help="Skip training and reuse existing model/")
     ap.add_argument("--verbose", action="store_true")
     args = ap.parse_args()
 
-    cfg = load_config(args.base_config, args.override_config) if args.override_config else load_config(args.base_config)
+    base_cfg = args.base_config
+    if base_cfg is None and args.override_config is not None:
+        # Infer per-sweep base.yaml next to the override config
+        candidate = args.override_config.parent / "base.yaml"
+        if candidate.exists():
+            base_cfg = candidate
+    if base_cfg is None:
+        raise FileNotFoundError("--base-config is required (or provide --override-config and ensure a base.yaml exists next to it)")
+
+    cfg = load_config(base_cfg, args.override_config) if args.override_config else load_config(base_cfg)
     print("Loaded config:")
     print(cfg)
 

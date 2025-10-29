@@ -93,10 +93,10 @@ python -m birdnet_custom_classifier_suite.cli.ui
 
 ---
 
-## Base Configuration
+## Base configuration (per-sweep)
 
-Global experiment defaults are stored in [`config/base.yaml`](config/base.yaml).  
-These settings apply to all runs and can be overridden by sweep-specific configs.
+Each sweep generates its own `base.yaml` inside the sweep output folder (for example `config/sweeps/<name>/base.yaml`).  
+This per-sweep base is derived from the sweep spec’s `base_params` and is the only base used by the pipeline for that sweep. There is no global `config/base.yaml`.
 
 Example:
 
@@ -200,16 +200,15 @@ This produces a combined CSV of all runs and writes leaderboards to `results/lea
 
 ---
 
-## Version Control Recommendations
+## Version control recommendations
 
-- **Track:**  
-  - `config/base.yaml`  
-  - all `config/sweep_specs/*.yaml`  
+- **Track:**
+  - all `config/sweep_specs/*.yaml`
   - `scripts/setup_env.ps1` (optional)  
   - everything inside `birdnet_custom_classifier_suite/`
 
 - **Ignore:**  
-  - generated `config/sweeps/**`  
+  - generated `config/sweeps/**` (including each sweep’s `base.yaml` and experiment YAMLs)  
   - model and experiment outputs under `experiments/**`  
   - local audio or dataset files (`AudioData/**`)
 

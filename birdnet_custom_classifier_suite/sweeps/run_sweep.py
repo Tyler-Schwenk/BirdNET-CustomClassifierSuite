@@ -54,7 +54,7 @@ def run_pipeline(config: Path, base_config: Path, verbose: bool = False) -> bool
 def main():
     ap = argparse.ArgumentParser(description="Batch runner for BirdNET pipeline")
     ap.add_argument("sweep_dir", type=Path, help="Directory of override config YAMLs")
-    ap.add_argument("--base-config", type=Path, default=Path("config/base.yaml"))
+    ap.add_argument("--base-config", type=Path, default=None, help="Path to per-sweep base.yaml; defaults to <sweep_dir>/base.yaml")
     ap.add_argument("--experiments-root", type=Path, default=Path("experiments"))
     ap.add_argument("--verbose", action="store_true")
     args = ap.parse_args()
@@ -63,7 +63,13 @@ def main():
         print(f"Sweep directory not found: {args.sweep_dir}")
         sys.exit(1)
 
-    configs = sorted(args.sweep_dir.glob("*.yaml"))
+    # Determine per-sweep base.yaml
+    base_cfg_path = args.base_config or (args.sweep_dir / "base.yaml")
+    if not base_cfg_path.exists():
+        print(f"Base config not found: {base_cfg_path}. Expected a per-sweep base.yaml in the sweep dir or pass --base-config explicitly.")
+        sys.exit(1)
+
+    configs = sorted(p for p in args.sweep_dir.glob("*.yaml") if p.name != "base.yaml")
     if not configs:
         print(f"No YAML configs found in {args.sweep_dir}")
         sys.exit(1)
@@ -84,7 +90,7 @@ def main():
             results.append((cfg.name, "SKIP"))
             continue
 
-        ok = run_pipeline(cfg, args.base_config, args.verbose)
+        ok = run_pipeline(cfg, base_cfg_path, args.verbose)
         results.append((cfg.name, "OK" if ok else "FAIL"))
 
     print("\n=== Sweep complete ===")

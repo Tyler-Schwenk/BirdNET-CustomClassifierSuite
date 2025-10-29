@@ -26,8 +26,9 @@ def sweep_form() -> SweepState:
     # Left column: Sweep metadata and base parameters
     with colA:
         state.stage = st.number_input("Stage number", min_value=0, max_value=99, value=1, step=1)
-        state.sweep_name = st.text_input("Sweep name", value=f"stage{state.stage}_sweep")
-        state.out_dir = st.text_input("Output folder for configs", value=f"config/sweeps/{state.sweep_name}")
+        state.sweep_name = st.text_input("Sweep name", value=f"stage{state.stage}_spec")
+        # Default the sweeps folder to stage{stage}_sweep regardless of spec name
+        state.out_dir = st.text_input("Output folder for configs", value=f"config/sweeps/stage{state.stage}_sweep")
         
         st.subheader("Base parameters")
         state.epochs = st.number_input("epochs", min_value=1, value=50, step=1)
@@ -246,7 +247,15 @@ def sweep_actions(state: SweepState, feedback_placeholder: Any,
     # Helper: render an inline overwrite confirmation UI
     def prompt_overwrite(kind: str, target: Path, details: str | None = None) -> tuple[bool, bool]:
         box = feedback_placeholder.container()
-        msg = f"⚠️ {kind.title()} target already exists: {target}. Are you sure you want to overwrite?"
+        if kind == "spec":
+            title = "Spec"
+        elif kind == "sweep":
+            title = "Sweep"
+        elif kind in ("spec_sweep", "sweep_spec"):
+            title = "Spec and sweep"
+        else:
+            title = kind.title()
+        msg = f"⚠️ {title} target already exists: {target}. Are you sure you want to overwrite?"
         if details:
             msg += f"\n{details}"
         box.warning(msg)
@@ -267,12 +276,36 @@ def sweep_actions(state: SweepState, feedback_placeholder: Any,
         details = pending.get("details")
         confirm, cancel = prompt_overwrite(kind, target, details)
         if confirm:
-            # Execute the stored action
-            if kind == "spec":
+            # Execute the stored action based on intent (save vs generate)
+            intent = pending.get("op") or pending.get("payload", {}).get("op")
+            if intent == "save":
+                # Save spec only
                 with open(target, "w", encoding="utf-8") as f:
                     yaml.safe_dump(pending["payload"], f, sort_keys=False)
                 feedback_placeholder.success(f"✅ Saved spec to {target}")
-            elif kind == "sweep":
+            else:
+                # Generate flow: update spec, then clean and regenerate sweep configs
+                spec_p = pending["payload"].get("spec_path")
+                if spec_p:
+                    try:
+                        spec_doc = {
+                            "stage": pending["payload"]["stage"],
+                            "out_dir": pending["payload"]["out_dir"],
+                            "axes": pending["payload"]["axes"],
+                            "base_params": pending["payload"]["base_params"],
+                        }
+                        with open(spec_p, "w", encoding="utf-8") as f:
+                            yaml.safe_dump(spec_doc, f, sort_keys=False)
+                    except Exception as _e:
+                        feedback_placeholder.warning(f"Could not update spec file: {_e}")
+                # Clean existing YAMLs in the sweep directory before regenerating
+                try:
+                    sweep_dir = Path(pending["payload"]["out_dir"])
+                    if sweep_dir.exists():
+                        for p in sweep_dir.glob("*.yaml"):
+                            p.unlink()
+                except Exception as _e:
+                    feedback_placeholder.warning(f"Could not remove some existing YAMLs in {sweep_dir}: {_e}")
                 from birdnet_custom_classifier_suite.sweeps.sweep_generator import generate_sweep
                 generate_sweep(
                     stage=pending["payload"]["stage"],
@@ -297,6 +330,7 @@ def sweep_actions(state: SweepState, feedback_placeholder: Any,
                 "kind": "spec",
                 "target": str(spec_path),
                 "payload": preview,
+                "op": "save",
                 "details": None,
             }
             # Render prompt now; user confirms or cancels on next interaction
@@ -311,29 +345,49 @@ def sweep_actions(state: SweepState, feedback_placeholder: Any,
         try:
             from birdnet_custom_classifier_suite.sweeps.sweep_generator import generate_sweep
             out_dir_path = Path(state.out_dir)
-            out_dir_path.mkdir(parents=True, exist_ok=True)
+            spec_dir = Path("config/sweep_specs")
+            spec_dir.mkdir(parents=True, exist_ok=True)
+            spec_path = spec_dir / f"{state.sweep_name}.yaml"
 
-            # Warn if sweep dir already has config YAMLs; require confirmation
-            existing_yaml = list(out_dir_path.glob("*.yaml"))
-            has_existing = bool(existing_yaml)
-            if has_existing:
+            # Check for existing artifacts BEFORE creating or modifying anything
+            existing_yaml = list(out_dir_path.glob("*.yaml")) if out_dir_path.exists() else []
+            has_existing_sweep = bool(existing_yaml)
+            has_existing_spec = spec_path.exists()
+
+            if has_existing_sweep or has_existing_spec:
                 details_list = []
-                details_list.append(f"{len(existing_yaml)} YAML config(s)")
-                detail_str = ", ".join(details_list) if details_list else "existing files"
+                if has_existing_sweep:
+                    details_list.append(f"{len(existing_yaml)} sweep YAML config(s)")
+                if has_existing_spec:
+                    details_list.append(f"Spec will be updated: {spec_path}")
+                detail_str = ", ".join(details_list) if details_list else None
+                kind = "spec_sweep" if has_existing_spec and has_existing_sweep else ("spec" if has_existing_spec else "sweep")
+                target_for_prompt = spec_path if kind == "spec" else out_dir_path
                 st.session_state["pending_overwrite"] = {
-                    "kind": "sweep",
-                    "target": str(out_dir_path),
+                    "kind": kind,
+                    "target": str(target_for_prompt),
                     "payload": {
                         "stage": state.stage,
                         "out_dir": state.out_dir,
                         "axes": state.get_axes_dict(),
                         "base_params": state.get_base_params_dict(),
+                        "spec_path": str(spec_path),
+                        "op": "generate",
                     },
-                    "details": f"Existing contents: {detail_str}",
+                    "details": detail_str,
                 }
-                confirm, cancel = prompt_overwrite("sweep", out_dir_path, f"Existing contents: {detail_str}")
+                # Render prompt inline; perform no side effects until confirmed
+                confirm, cancel = prompt_overwrite(kind, target_for_prompt, detail_str)
                 return
 
+            # Fresh generation path: write spec first, then generate configs
+            with open(spec_path, "w", encoding="utf-8") as f:
+                yaml.safe_dump({
+                    "stage": state.stage,
+                    "out_dir": state.out_dir,
+                    "axes": state.get_axes_dict(),
+                    "base_params": state.get_base_params_dict(),
+                }, f, sort_keys=False)
             generate_sweep(
                 stage=state.stage,
                 out_dir=state.out_dir,
@@ -354,7 +408,7 @@ def sweep_actions(state: SweepState, feedback_placeholder: Any,
                 "birdnet_custom_classifier_suite.sweeps.run_sweep",
                 str(state.out_dir),
                 "--base-config",
-                "config/base.yaml",
+                str((Path(state.out_dir) / "base.yaml").as_posix()),
                 "--experiments-root",
                 "experiments",
             ]
