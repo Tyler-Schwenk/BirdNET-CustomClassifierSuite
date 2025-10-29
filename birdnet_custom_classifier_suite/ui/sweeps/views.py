@@ -243,9 +243,66 @@ def sweep_actions(state: SweepState, feedback_placeholder: Any,
         "base_params": state.get_base_params_dict(),
     }
     
-    # Handle button actions
+    # Helper: render an inline overwrite confirmation UI
+    def prompt_overwrite(kind: str, target: Path, details: str | None = None) -> tuple[bool, bool]:
+        box = feedback_placeholder.container()
+        msg = f"⚠️ {kind.title()} target already exists: {target}. Are you sure you want to overwrite?"
+        if details:
+            msg += f"\n{details}"
+        box.warning(msg)
+        c1, c2 = box.columns(2)
+        confirm = c1.button("✅ Yes, overwrite", key=f"confirm_overwrite_{kind}_{str(target)}")
+        cancel = c2.button("✖️ Cancel", key=f"cancel_overwrite_{kind}_{str(target)}")
+        return confirm, cancel
+
+    # Session state for pending prompts
+    if "pending_overwrite" not in st.session_state:
+        st.session_state["pending_overwrite"] = None
+
+    # If a prompt is pending, render it first and act on user choice
+    pending = st.session_state.get("pending_overwrite")
+    if pending:
+        kind = pending.get("kind")  # 'spec' or 'sweep'
+        target = Path(pending.get("target", ""))
+        details = pending.get("details")
+        confirm, cancel = prompt_overwrite(kind, target, details)
+        if confirm:
+            # Execute the stored action
+            if kind == "spec":
+                with open(target, "w", encoding="utf-8") as f:
+                    yaml.safe_dump(pending["payload"], f, sort_keys=False)
+                feedback_placeholder.success(f"✅ Saved spec to {target}")
+            elif kind == "sweep":
+                from birdnet_custom_classifier_suite.sweeps.sweep_generator import generate_sweep
+                generate_sweep(
+                    stage=pending["payload"]["stage"],
+                    out_dir=pending["payload"]["out_dir"],
+                    axes=pending["payload"]["axes"],
+                    base_params=pending["payload"]["base_params"],
+                )
+                feedback_placeholder.success(f"✅ Generated configs at {pending['payload']['out_dir']}")
+            st.session_state["pending_overwrite"] = None
+            return
+        elif cancel:
+            st.session_state["pending_overwrite"] = None
+            feedback_placeholder.info("❎ Overwrite canceled.")
+            return
+
+    # Handle button actions (no pending prompt)
     if save_clicked:
         spec_dir.mkdir(parents=True, exist_ok=True)
+        # If spec exists, open a confirmation prompt
+        if spec_path.exists():
+            st.session_state["pending_overwrite"] = {
+                "kind": "spec",
+                "target": str(spec_path),
+                "payload": preview,
+                "details": None,
+            }
+            # Render prompt now; user confirms or cancels on next interaction
+            confirm, cancel = prompt_overwrite("spec", spec_path)
+            return
+        # Proceed with save (fresh)
         with open(spec_path, "w", encoding="utf-8") as f:
             yaml.safe_dump(preview, f, sort_keys=False)
         feedback_placeholder.success(f"✅ Saved spec to {spec_path}")
@@ -253,7 +310,34 @@ def sweep_actions(state: SweepState, feedback_placeholder: Any,
     if generate_clicked:
         try:
             from birdnet_custom_classifier_suite.sweeps.sweep_generator import generate_sweep
-            Path(state.out_dir).mkdir(parents=True, exist_ok=True)
+            out_dir_path = Path(state.out_dir)
+            out_dir_path.mkdir(parents=True, exist_ok=True)
+
+            # Warn if sweep dir already has configs/manifest; require confirmation
+            existing_yaml = list(out_dir_path.glob("*.yaml"))
+            has_manifest = (out_dir_path / "manifest.csv").exists()
+            has_existing = bool(existing_yaml or has_manifest)
+            if has_existing:
+                details_list = []
+                if existing_yaml:
+                    details_list.append(f"{len(existing_yaml)} YAML config(s)")
+                if has_manifest:
+                    details_list.append("manifest.csv")
+                detail_str = ", ".join(details_list) if details_list else "existing files"
+                st.session_state["pending_overwrite"] = {
+                    "kind": "sweep",
+                    "target": str(out_dir_path),
+                    "payload": {
+                        "stage": state.stage,
+                        "out_dir": state.out_dir,
+                        "axes": state.get_axes_dict(),
+                        "base_params": state.get_base_params_dict(),
+                    },
+                    "details": f"Existing contents: {detail_str}",
+                }
+                confirm, cancel = prompt_overwrite("sweep", out_dir_path, f"Existing contents: {detail_str}")
+                return
+
             generate_sweep(
                 stage=state.stage,
                 out_dir=state.out_dir,

@@ -619,8 +619,8 @@ def signature_details(breakdown: Optional[PerRunBreakdown]) -> None:
             with cols[i % len(cols)]:
                 display_name = name.replace("metrics.", "").replace(".best_f1", "").replace("_", " ").title()
                 value = f"{mn:.4f}" if (mn is not None and not pd.isna(mn)) else "n/a"
-                delta = f"±{sd:.4f}" if (sd is not None and not pd.isna(sd)) else None
-                st.metric(label=display_name, value=value, delta=delta)
+                delta = f"STD ±{sd:.4f}" if (sd is not None and not pd.isna(sd)) else None
+                st.metric(label=display_name, value=value, delta=delta, delta_color="off")
 
     # Configuration summary - categorized and prioritized
     if breakdown.config_columns:
