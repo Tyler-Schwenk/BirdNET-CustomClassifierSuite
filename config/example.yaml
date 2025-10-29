@@ -1,7 +1,7 @@
 # ===========================================================
 # BirdNET-CustomClassifierSuite — Base Configuration
 # -----------------------------------------------------------
-# This file defines global defaults for all experiments.
+# This file defines defaults for all experiments within a sweep.
 # Each sweep or stage-specific override YAML will layer
 # on top of this via `--override-config`.
 #

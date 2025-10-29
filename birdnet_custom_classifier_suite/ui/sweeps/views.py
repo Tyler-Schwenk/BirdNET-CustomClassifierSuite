@@ -206,7 +206,7 @@ def render_action_buttons() -> tuple[bool, bool, bool]:
         gen_configs_btn = st.button(
             "⚙️ Generate configs", 
             key="gen_configs_top",
-            help="Generate individual experiment YAML configs and manifest.csv in the output folder"
+            help="Generate individual experiment YAML configs in the output folder"
         )
     with btn_cols[2]:
         run_sweep_btn = st.button(
@@ -313,16 +313,12 @@ def sweep_actions(state: SweepState, feedback_placeholder: Any,
             out_dir_path = Path(state.out_dir)
             out_dir_path.mkdir(parents=True, exist_ok=True)
 
-            # Warn if sweep dir already has configs/manifest; require confirmation
+            # Warn if sweep dir already has config YAMLs; require confirmation
             existing_yaml = list(out_dir_path.glob("*.yaml"))
-            has_manifest = (out_dir_path / "manifest.csv").exists()
-            has_existing = bool(existing_yaml or has_manifest)
+            has_existing = bool(existing_yaml)
             if has_existing:
                 details_list = []
-                if existing_yaml:
-                    details_list.append(f"{len(existing_yaml)} YAML config(s)")
-                if has_manifest:
-                    details_list.append("manifest.csv")
+                details_list.append(f"{len(existing_yaml)} YAML config(s)")
                 detail_str = ", ".join(details_list) if details_list else "existing files"
                 st.session_state["pending_overwrite"] = {
                     "kind": "sweep",

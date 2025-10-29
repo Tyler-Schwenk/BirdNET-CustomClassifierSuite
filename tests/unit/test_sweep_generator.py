@@ -1,4 +1,3 @@
-import csv
 from pathlib import Path
 
 import yaml
@@ -19,17 +18,12 @@ def test_generate_sweep_writes_files(tmp_path):
 
     generate_sweep(stage=0, out_dir=str(out_dir), axes=axes, base_params=base_params, prefix="test")
 
-    # Expect 4 configs (2 seeds * 2 qualities * 1 balance)
-    yamls = sorted(out_dir.glob("*.yaml"))
+    # Expect 4 experiment configs (2 seeds * 2 qualities * 1 balance)
+    yamls_all = sorted(out_dir.glob("*.yaml"))
+    base = out_dir / "base.yaml"
+    assert base.exists()
+    yamls = [p for p in yamls_all if p.name != "base.yaml"]
     assert len(yamls) == 4
-
-    # Manifest exists and matches
-    manifest = out_dir / "manifest.csv"
-    assert manifest.exists()
-    with open(manifest, newline="") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-    assert len(rows) == 4
 
     # Each yaml should load and have an experiment.name matching filename
     for y in yamls:

@@ -31,7 +31,7 @@ BirdNET-CustomClassifierSuite/
 │       ├── test_sweep/
 │       │   ├── stage0_001.yaml
 │       │   ├── ...
-│       │   └── manifest.csv
+│       │   └── base.yaml
 │
 ├── experiments/                       ← Pipeline outputs (models, evals)
 ├── scripts/                           ← Local scripts (dev convenience)
@@ -163,7 +163,7 @@ Run the generator with any sweep spec:
 python -m birdnet_custom_classifier_suite.sweeps.sweep_generator --spec config/sweep_specs/example_sweep.yaml
 ```
 
-This creates a folder of YAML configs and a manifest CSV under `config/sweeps/<name>/`.
+This creates a folder under `config/sweeps/<name>/` containing `base.yaml` and the generated experiment YAML configs.
 
 ---
 
@@ -172,7 +172,7 @@ This creates a folder of YAML configs and a manifest CSV under `config/sweeps/<n
 Execute all configs in a sweep folder using the training pipeline:
 
 ```powershell
-python -m birdnet_custom_classifier_suite.sweeps.run_sweep config/sweeps/example_sweep --base-config config/base.yaml --verbose
+python -m birdnet_custom_classifier_suite.sweeps.run_sweep config/sweeps/example_sweep --base-config config/sweeps/example_sweep/base.yaml --verbose
 ```
 
 Each config will:
@@ -221,7 +221,7 @@ You can validate your environment with:
 
 ```powershell
 python -m birdnet_custom_classifier_suite.sweeps.sweep_generator --spec config/sweep_specs/test_sweep.yaml
-python -m birdnet_custom_classifier_suite.sweeps.run_sweep config/sweeps/test_sweep --base-config config/base.yaml --verbose
+python -m birdnet_custom_classifier_suite.sweeps.run_sweep config/sweeps/test_sweep --base-config config/sweeps/test_sweep/base.yaml --verbose
 ```
 
 This runs a 4-config micro sweep (1 epoch each) to verify your setup end-to-end.
