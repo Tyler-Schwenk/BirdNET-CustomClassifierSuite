@@ -189,14 +189,19 @@ def sweep_form() -> SweepState:
     return state
 
 
-def render_action_buttons() -> tuple[bool, bool, bool]:
+def render_action_buttons(stage: int, sweep_name: str, out_dir: str) -> tuple[bool, bool, bool, bool]:
     """
     Render action buttons at top of sweep form.
     
+    Args:
+        stage: Stage number for display
+        sweep_name: Sweep name for display
+        out_dir: Output directory for display
+    
     Returns:
-        (save_clicked, generate_clicked, run_clicked)
+        (save_clicked, generate_clicked, run_clicked, regen_run_clicked)
     """
-    btn_cols = st.columns(3)
+    btn_cols = st.columns(4)
     with btn_cols[0]:
         save_spec_btn = st.button(
             "💾 Save spec YAML", 
@@ -211,15 +216,25 @@ def render_action_buttons() -> tuple[bool, bool, bool]:
         )
     with btn_cols[2]:
         run_sweep_btn = st.button(
-            "▶️ Run sweep now", 
+            "▶️ Run existing sweep", 
             key="run_sweep_top",
-            help="Generate configs and immediately run all experiments in the sweep"
+            help=f"Run the existing configs in: {out_dir}"
         )
-    return save_spec_btn, gen_configs_btn, run_sweep_btn
+    with btn_cols[3]:
+        regen_run_btn = st.button(
+            "🔄 Regenerate & run",
+            key="regen_run_top",
+            help=f"Regenerate configs then run sweep: {out_dir}"
+        )
+    
+    # Display target info below buttons
+    st.caption(f"**Spec:** `config/sweep_specs/{sweep_name}.yaml` | **Sweep folder:** `{out_dir}`")
+    
+    return save_spec_btn, gen_configs_btn, run_sweep_btn, regen_run_btn
 
 
 def sweep_actions(state: SweepState, feedback_placeholder: Any, 
-                  save_clicked: bool, generate_clicked: bool, run_clicked: bool) -> None:
+                  save_clicked: bool, generate_clicked: bool, run_clicked: bool, regen_run_clicked: bool) -> None:
     """
     Handle sweep action button clicks.
     
@@ -228,7 +243,8 @@ def sweep_actions(state: SweepState, feedback_placeholder: Any,
         feedback_placeholder: Streamlit placeholder for feedback messages
         save_clicked: Whether save button was clicked
         generate_clicked: Whether generate button was clicked
-        run_clicked: Whether run button was clicked
+        run_clicked: Whether run existing button was clicked
+        regen_run_clicked: Whether regenerate & run button was clicked
     """
     
     # Prepare paths
@@ -276,14 +292,14 @@ def sweep_actions(state: SweepState, feedback_placeholder: Any,
         details = pending.get("details")
         confirm, cancel = prompt_overwrite(kind, target, details)
         if confirm:
-            # Execute the stored action based on intent (save vs generate)
+            # Execute the stored action based on intent (save vs generate vs regen_run)
             intent = pending.get("op") or pending.get("payload", {}).get("op")
             if intent == "save":
                 # Save spec only
                 with open(target, "w", encoding="utf-8") as f:
                     yaml.safe_dump(pending["payload"], f, sort_keys=False)
                 feedback_placeholder.success(f"✅ Saved spec to {target}")
-            else:
+            elif intent in ("generate", "regen_run"):
                 # Generate flow: update spec, then clean and regenerate sweep configs
                 spec_p = pending["payload"].get("spec_path")
                 if spec_p:
@@ -314,6 +330,29 @@ def sweep_actions(state: SweepState, feedback_placeholder: Any,
                     base_params=pending["payload"]["base_params"],
                 )
                 feedback_placeholder.success(f"✅ Generated configs at {pending['payload']['out_dir']}")
+                
+                # If regen_run, also run the sweep
+                if intent == "regen_run":
+                    import subprocess
+                    import sys
+                    cmd = [
+                        sys.executable,
+                        "-m",
+                        "birdnet_custom_classifier_suite.sweeps.run_sweep",
+                        str(pending["payload"]["out_dir"]),
+                        "--base-config",
+                        str((Path(pending["payload"]["out_dir"]) / "base.yaml").as_posix()),
+                        "--experiments-root",
+                        "experiments",
+                    ]
+                    feedback_placeholder.write("Running: " + " ".join(cmd))
+                    proc = subprocess.run(cmd, capture_output=True, text=True)
+                    st.code(proc.stdout or "", language="bash")
+                    if proc.returncode != 0:
+                        feedback_placeholder.error("❌ Sweep run failed.")
+                        st.code(proc.stderr or "", language="bash")
+                    else:
+                        feedback_placeholder.success("✅ Sweep finished or started successfully (see logs above).")
             st.session_state["pending_overwrite"] = None
             return
         elif cancel:
@@ -402,6 +441,14 @@ def sweep_actions(state: SweepState, feedback_placeholder: Any,
         try:
             import subprocess
             import sys
+            out_dir_path = Path(state.out_dir)
+
+            # Check if configs exist
+            experiment_yamls = sorted(p for p in out_dir_path.glob("*.yaml") if p.name != "base.yaml") if out_dir_path.exists() else []
+            if not experiment_yamls:
+                feedback_placeholder.error(f"❌ No experiment configs found in {state.out_dir}. Use 'Generate configs' or 'Regenerate & run' first.")
+                return
+
             cmd = [
                 sys.executable,
                 "-m",
@@ -422,3 +469,82 @@ def sweep_actions(state: SweepState, feedback_placeholder: Any,
                 feedback_placeholder.success("✅ Sweep finished or started successfully (see logs above).")
         except Exception as e:
             feedback_placeholder.error(f"❌ Failed to run sweep: {e}")
+    
+    if regen_run_clicked:
+        try:
+            import subprocess
+            import sys
+            from birdnet_custom_classifier_suite.sweeps.sweep_generator import generate_sweep
+            out_dir_path = Path(state.out_dir)
+            spec_dir = Path("config/sweep_specs")
+            spec_dir.mkdir(parents=True, exist_ok=True)
+            spec_path = spec_dir / f"{state.sweep_name}.yaml"
+
+            # Check for existing artifacts BEFORE creating or modifying anything
+            existing_yaml = list(out_dir_path.glob("*.yaml")) if out_dir_path.exists() else []
+            has_existing_sweep = bool(existing_yaml)
+            has_existing_spec = spec_path.exists()
+
+            if has_existing_sweep or has_existing_spec:
+                details_list = []
+                if has_existing_sweep:
+                    details_list.append(f"{len(existing_yaml)} sweep YAML config(s)")
+                if has_existing_spec:
+                    details_list.append(f"Spec will be updated: {spec_path}")
+                detail_str = ", ".join(details_list) if details_list else None
+                kind = "spec_sweep" if has_existing_spec and has_existing_sweep else ("spec" if has_existing_spec else "sweep")
+                target_for_prompt = spec_path if kind == "spec" else out_dir_path
+                st.session_state["pending_overwrite"] = {
+                    "kind": kind,
+                    "target": str(target_for_prompt),
+                    "payload": {
+                        "stage": state.stage,
+                        "out_dir": state.out_dir,
+                        "axes": state.get_axes_dict(),
+                        "base_params": state.get_base_params_dict(),
+                        "spec_path": str(spec_path),
+                        "op": "regen_run",
+                    },
+                    "details": detail_str,
+                }
+                # Render prompt inline; perform no side effects until confirmed
+                confirm, cancel = prompt_overwrite(kind, target_for_prompt, detail_str)
+                return
+
+            # Fresh generation path: write spec first, then generate configs, then run
+            with open(spec_path, "w", encoding="utf-8") as f:
+                yaml.safe_dump({
+                    "stage": state.stage,
+                    "out_dir": state.out_dir,
+                    "axes": state.get_axes_dict(),
+                    "base_params": state.get_base_params_dict(),
+                }, f, sort_keys=False)
+            generate_sweep(
+                stage=state.stage,
+                out_dir=state.out_dir,
+                axes=state.get_axes_dict(),
+                base_params=state.get_base_params_dict()
+            )
+            feedback_placeholder.success(f"✅ Generated configs at {state.out_dir}")
+
+            # Now run the sweep
+            cmd = [
+                sys.executable,
+                "-m",
+                "birdnet_custom_classifier_suite.sweeps.run_sweep",
+                str(state.out_dir),
+                "--base-config",
+                str((Path(state.out_dir) / "base.yaml").as_posix()),
+                "--experiments-root",
+                "experiments",
+            ]
+            feedback_placeholder.write("Running: " + " ".join(cmd))
+            proc = subprocess.run(cmd, capture_output=True, text=True)
+            st.code(proc.stdout or "", language="bash")
+            if proc.returncode != 0:
+                feedback_placeholder.error("❌ Sweep run failed.")
+                st.code(proc.stderr or "", language="bash")
+            else:
+                feedback_placeholder.success("✅ Sweep finished or started successfully (see logs above).")
+        except Exception as e:
+            feedback_placeholder.error(f"❌ Failed to regenerate and run sweep: {e}")

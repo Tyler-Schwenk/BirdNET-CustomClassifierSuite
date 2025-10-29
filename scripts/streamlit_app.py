@@ -200,19 +200,24 @@ def main():
 
         from birdnet_custom_classifier_suite.ui.sweeps import sweep_form, sweep_actions, render_action_buttons
 
-        # Render action buttons first (at top)
-        save_clicked, generate_clicked, run_clicked = render_action_buttons()
-        
-        # Placeholder for action feedback
+        # Reserve a top area for buttons, then render the form, then draw buttons into the top area using current values
+        buttons_container = st.container()
         feedback_placeholder = st.empty()
-        
         st.markdown("---")
-        
-        # Render sweep parameter form
+
+        # Render the sweep parameter form to capture current values
         sweep_state = sweep_form()
-        
+
+        # Now render buttons at the very top, using the current form values
+        with buttons_container:
+            save_clicked, generate_clicked, run_clicked, regen_run_clicked = render_action_buttons(
+                sweep_state.stage,
+                sweep_state.sweep_name,
+                sweep_state.out_dir,
+            )
+
         # Handle any button actions with the populated state
-        sweep_actions(sweep_state, feedback_placeholder, save_clicked, generate_clicked, run_clicked)
+        sweep_actions(sweep_state, feedback_placeholder, save_clicked, generate_clicked, run_clicked, regen_run_clicked)
 
 
 
