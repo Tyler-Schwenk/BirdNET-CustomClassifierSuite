@@ -95,28 +95,38 @@ def sweep_form() -> SweepState:
     with colB:
         st.subheader("Axes (values to sweep)")
         
-        seeds_str = st.text_input("seed values (comma-separated)", value="123", key="sweep_seeds")
+        seeds_str = st.text_input(
+            "seed values (comma-separated)",
+            value="123",
+            key="sweep_seeds",
+            help="Example: 123, 456, 789"
+        )
         state.seeds = parse_num_list(seeds_str, int)
         
         hidden_units_str = st.text_input(
             "hidden_units (comma-separated)", 
-            value="0,128,512", 
+            value="", 
             key="sweep_hidden_units",
-            help="Use 0 for no hidden layer"
+            help="Use 0 for no hidden layer. Example: 0, 128, 512",
+            placeholder="e.g., 0, 128, 512"
         )
         state.hidden_units = parse_num_list(hidden_units_str, int)
         
         dropout_axis_str = st.text_input(
             "dropout values (comma-separated)", 
-            value="0.0,0.25", 
-            key="sweep_dropout"
+            value="", 
+            key="sweep_dropout",
+            help="Example: 0.0, 0.25",
+            placeholder="e.g., 0.0, 0.25"
         )
         state.dropout_axis = parse_num_list(dropout_axis_str, float)
         
         lr_axis_str = st.text_input(
             "learning_rate values (comma-separated)", 
-            value="0.0001,0.0005,0.001", 
-            key="sweep_lr"
+            value="", 
+            key="sweep_lr",
+            help="Example: 0.0001, 0.0005, 0.001",
+            placeholder="e.g., 0.0001, 0.0005, 0.001"
         )
         state.learning_rate_axis = parse_num_list(lr_axis_str, float)
         
@@ -124,7 +134,7 @@ def sweep_form() -> SweepState:
         quality_combos_raw = st.multiselect(
             "Select quality combinations",
             options=["high", "medium", "low", "high,medium", "high,low", "medium,low", "high,medium,low"],
-            default=["high", "medium", "low", "high,medium"],
+            default=["high,medium"],
             key="sweep_quality_combos",
             help="Valid quality values: high, medium, low. Select one or more combinations to sweep over."
         )
@@ -146,15 +156,17 @@ def sweep_form() -> SweepState:
         state.upsampling_mode_opts = st.multiselect(
             "upsampling_mode options",
             options=["repeat", "linear", "mean", "smote"],
-            default=["repeat"],
+            default=[],
             key="sweep_upmode",
-            help="BirdNET-Analyzer valid modes: repeat, linear, mean, smote. Set upsampling_ratio=0.0 to effectively disable upsampling."
+            help="Valid: repeat, linear, mean, smote. Leave empty if not sweeping. To disable upsampling entirely, set upsampling_ratio=0.0 in Base parameters."
         )
         
         up_ratio_axis_str = st.text_input(
             "upsampling_ratio values (comma-separated)", 
-            value="0.0,0.25", 
-            key="sweep_upratio"
+            value="", 
+            key="sweep_upratio",
+            help="Example: 0.0, 0.25",
+            placeholder="e.g., 0.0, 0.25"
         )
         state.upsampling_ratio_axis = parse_num_list(up_ratio_axis_str, float)
     
