@@ -77,7 +77,17 @@ def build_training_cmd(cfg, exp_dir):
     outdir = exp_dir / "model"
     cmd = [python_exe, "-m", "birdnet_analyzer.train", str(dataset), "-o", str(outdir)]
     cmd = apply_args(cmd, cfg.get("training", {}))
-    cmd = apply_args(cmd, cfg.get("training_args", {}))
+
+    # Sanitize training_args to match BirdNET-Analyzer CLI
+    ta = dict(cfg.get("training_args", {}) or {})
+    # If an invalid upsampling_mode (e.g., 'none') sneaks in from older specs, drop it.
+    allowed_modes = {"repeat", "linear", "mean", "smote"}
+    mode = ta.get("upsampling_mode")
+    if mode is not None and str(mode).lower() not in allowed_modes:
+        print(f"[WARN] Ignoring unsupported upsampling_mode='{mode}'. Valid: repeat, linear, mean, smote.\n"
+              f"       Tip: set upsampling_ratio=0.0 to disable upsampling.")
+        ta.pop("upsampling_mode", None)
+    cmd = apply_args(cmd, ta)
     return cmd
 
 

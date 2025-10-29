@@ -215,9 +215,11 @@ def main():
                 sweep_state.sweep_name,
                 sweep_state.out_dir,
             )
+            # Output area directly below buttons for logs/progress
+            run_output_container = st.container()
 
         # Handle any button actions with the populated state
-        sweep_actions(sweep_state, feedback_placeholder, save_clicked, generate_clicked, run_clicked, regen_run_clicked)
+    sweep_actions(sweep_state, feedback_placeholder, save_clicked, generate_clicked, run_clicked, regen_run_clicked, run_output_container)
 
 
 

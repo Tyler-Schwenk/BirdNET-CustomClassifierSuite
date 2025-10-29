@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re, time, subprocess, sys
 from typing import Any
 
 import streamlit as st
@@ -143,10 +144,11 @@ def sweep_form() -> SweepState:
             key="sweep_balance"
         )
         state.upsampling_mode_opts = st.multiselect(
-            "upsampling_mode options", 
-            options=["none", "repeat", "linear"], 
-            default=["repeat"], 
-            key="sweep_upmode"
+            "upsampling_mode options",
+            options=["repeat", "linear", "mean", "smote"],
+            default=["repeat"],
+            key="sweep_upmode",
+            help="BirdNET-Analyzer valid modes: repeat, linear, mean, smote. Set upsampling_ratio=0.0 to effectively disable upsampling."
         )
         
         up_ratio_axis_str = st.text_input(
@@ -234,7 +236,8 @@ def render_action_buttons(stage: int, sweep_name: str, out_dir: str) -> tuple[bo
 
 
 def sweep_actions(state: SweepState, feedback_placeholder: Any, 
-                  save_clicked: bool, generate_clicked: bool, run_clicked: bool, regen_run_clicked: bool) -> None:
+                  save_clicked: bool, generate_clicked: bool, run_clicked: bool, regen_run_clicked: bool,
+                  output_container: Any | None = None) -> None:
     """
     Handle sweep action button clicks.
     
@@ -331,10 +334,20 @@ def sweep_actions(state: SweepState, feedback_placeholder: Any,
                 )
                 feedback_placeholder.success(f"✅ Generated configs at {pending['payload']['out_dir']}")
                 
-                # If regen_run, also run the sweep
+                # If regen_run, also run the sweep (stream live output)
                 if intent == "regen_run":
-                    import subprocess
-                    import sys
+                    out_dir_path = Path(pending["payload"]["out_dir"])
+                    total = len([p for p in out_dir_path.glob("*.yaml") if p.name != "base.yaml"]) if out_dir_path.exists() else 0
+                    if 'output_container' in pending and pending['output_container'] is not None:
+                        with pending['output_container']:
+                            status_box = st.empty()
+                            progress_box = st.progress(0)
+                            log_area = st.empty()
+                    else:
+                        status_box = st.empty()
+                        progress_box = st.progress(0)
+                        log_area = st.empty()
+
                     cmd = [
                         sys.executable,
                         "-m",
@@ -345,14 +358,45 @@ def sweep_actions(state: SweepState, feedback_placeholder: Any,
                         "--experiments-root",
                         "experiments",
                     ]
-                    feedback_placeholder.write("Running: " + " ".join(cmd))
-                    proc = subprocess.run(cmd, capture_output=True, text=True)
-                    st.code(proc.stdout or "", language="bash")
-                    if proc.returncode != 0:
-                        feedback_placeholder.error("❌ Sweep run failed.")
-                        st.code(proc.stderr or "", language="bash")
+                    status_box.info("Running: " + " ".join(cmd))
+
+                    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, universal_newlines=True)
+                    completed = successes = failures = 0
+                    current_exp = None
+                    log_lines = []
+                    last_ui = 0.0
+                    exp_re = re.compile(r"^=== Running experiment: (.+) ===")
+                    ok_re = re.compile(r"^Success:\s*(.+)")
+                    fail_re = re.compile(r"^Failed:\s*(.+)")
+
+                    for line in proc.stdout:
+                        line = line.rstrip("\n")
+                        log_lines.append(line)
+                        m = exp_re.match(line)
+                        if m:
+                            current_exp = m.group(1)
+                        if ok_re.match(line):
+                            successes += 1
+                            completed += 1
+                        elif fail_re.match(line):
+                            failures += 1
+                            completed += 1
+
+                        now = time.time()
+                        if now - last_ui > 0.1:
+                            progress = int((completed / max(total, 1)) * 100)
+                            progress_box.progress(min(progress, 100))
+                            log_area.text_area("Run log", value="\n".join(log_lines[-500:]), height=420, disabled=True)
+                            status_box.info(f"Running… {completed}/{total} done | ✓ {successes} • ✗ {failures}" + (f" | current: {current_exp}" if current_exp else ""))
+                            last_ui = now
+
+                    ret = proc.wait()
+                    progress_box.progress(100)
+                    log_area.text_area("Run log", value="\n".join(log_lines[-800:]), height=420, disabled=True)
+                    if ret != 0:
+                        feedback_placeholder.error(f"❌ Sweep run failed with exit code {ret}. See logs above.")
                     else:
-                        feedback_placeholder.success("✅ Sweep finished or started successfully (see logs above).")
+                        feedback_placeholder.success(f"✅ Sweep complete: {successes} succeeded, {failures} failed.")
             st.session_state["pending_overwrite"] = None
             return
         elif cancel:
@@ -439,8 +483,6 @@ def sweep_actions(state: SweepState, feedback_placeholder: Any,
     
     if run_clicked:
         try:
-            import subprocess
-            import sys
             out_dir_path = Path(state.out_dir)
 
             # Check if configs exist
@@ -448,6 +490,18 @@ def sweep_actions(state: SweepState, feedback_placeholder: Any,
             if not experiment_yamls:
                 feedback_placeholder.error(f"❌ No experiment configs found in {state.out_dir}. Use 'Generate configs' or 'Regenerate & run' first.")
                 return
+
+            total = len(experiment_yamls)
+            # Render logs/progress just below the buttons if a container is provided
+            if output_container is not None:
+                with output_container:
+                    status_box = st.empty()
+                    progress_box = st.progress(0)
+                    log_area = st.empty()
+            else:
+                status_box = st.empty()
+                progress_box = st.progress(0)
+                log_area = st.empty()
 
             cmd = [
                 sys.executable,
@@ -459,21 +513,65 @@ def sweep_actions(state: SweepState, feedback_placeholder: Any,
                 "--experiments-root",
                 "experiments",
             ]
-            feedback_placeholder.write("Running: " + " ".join(cmd))
-            proc = subprocess.run(cmd, capture_output=True, text=True)
-            st.code(proc.stdout or "", language="bash")
-            if proc.returncode != 0:
-                feedback_placeholder.error("❌ Sweep run failed.")
-                st.code(proc.stderr or "", language="bash")
+            status_box.info("Running: " + " ".join(cmd))
+
+            # Stream output live and track progress
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, universal_newlines=True)
+            completed = 0
+            successes = 0
+            failures = 0
+            current_exp = None
+            log_lines = []
+            last_ui = 0.0
+            exp_re = re.compile(r"^=== Running experiment: (.+) ===")
+            ok_re = re.compile(r"^Success:\s*(.+)")
+            fail_re = re.compile(r"^Failed:\s*(.+)")
+
+            for line in proc.stdout:
+                line = line.rstrip("\n")
+                log_lines.append(line)
+                m = exp_re.match(line)
+                if m:
+                    current_exp = m.group(1)
+                if ok_re.match(line):
+                    successes += 1
+                    completed += 1
+                elif fail_re.match(line):
+                    failures += 1
+                    completed += 1
+                # Update UI (throttled) and use a fixed-height scrollable text area
+                now = time.time()
+                if now - last_ui > 0.1:
+                    progress = int((completed / max(total, 1)) * 100)
+                    progress_box.progress(min(progress, 100))
+                    log_area.text_area("Run log", value="\n".join(log_lines[-500:]), height=420, disabled=True)
+                    status_box.info(f"Running… {completed}/{total} done | ✓ {successes} • ✗ {failures}" + (f" | current: {current_exp}" if current_exp else ""))
+                    last_ui = now
+
+            ret = proc.wait()
+            # Final update
+            progress_box.progress(100)
+            log_area.text_area("Run log", value="\n".join(log_lines[-800:]), height=420, disabled=True)
+            if ret != 0:
+                feedback_placeholder.error(f"❌ Sweep run failed with exit code {ret}. See logs above.")
             else:
-                feedback_placeholder.success("✅ Sweep finished or started successfully (see logs above).")
+                feedback_placeholder.success(f"✅ Sweep complete: {successes} succeeded, {failures} failed.")
+
+            # Persist a summary in session state
+            runs = st.session_state.get("sweep_runs", [])
+            runs.append({
+                "out_dir": str(out_dir_path),
+                "total": total,
+                "successes": successes,
+                "failures": failures,
+                "timestamp": time.time(),
+            })
+            st.session_state["sweep_runs"] = runs
         except Exception as e:
             feedback_placeholder.error(f"❌ Failed to run sweep: {e}")
     
     if regen_run_clicked:
         try:
-            import subprocess
-            import sys
             from birdnet_custom_classifier_suite.sweeps.sweep_generator import generate_sweep
             out_dir_path = Path(state.out_dir)
             spec_dir = Path("config/sweep_specs")
@@ -505,6 +603,8 @@ def sweep_actions(state: SweepState, feedback_placeholder: Any,
                         "spec_path": str(spec_path),
                         "op": "regen_run",
                     },
+                    # Pass output container through so logs render under buttons after confirm
+                    "output_container": output_container,
                     "details": detail_str,
                 }
                 # Render prompt inline; perform no side effects until confirmed
@@ -527,7 +627,18 @@ def sweep_actions(state: SweepState, feedback_placeholder: Any,
             )
             feedback_placeholder.success(f"✅ Generated configs at {state.out_dir}")
 
-            # Now run the sweep
+            # Now run the sweep with live streaming (reuse logic from run_clicked)
+            total = len([p for p in out_dir_path.glob("*.yaml") if p.name != "base.yaml"]) if out_dir_path.exists() else 0
+            if output_container is not None:
+                with output_container:
+                    status_box = st.empty()
+                    progress_box = st.progress(0)
+                    log_area = st.empty()
+            else:
+                status_box = st.empty()
+                progress_box = st.progress(0)
+                log_area = st.empty()
+
             cmd = [
                 sys.executable,
                 "-m",
@@ -538,13 +649,49 @@ def sweep_actions(state: SweepState, feedback_placeholder: Any,
                 "--experiments-root",
                 "experiments",
             ]
-            feedback_placeholder.write("Running: " + " ".join(cmd))
-            proc = subprocess.run(cmd, capture_output=True, text=True)
-            st.code(proc.stdout or "", language="bash")
-            if proc.returncode != 0:
-                feedback_placeholder.error("❌ Sweep run failed.")
-                st.code(proc.stderr or "", language="bash")
+            status_box.info("Running: " + " ".join(cmd))
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, universal_newlines=True)
+            completed = successes = failures = 0
+            current_exp = None
+            log_lines = []
+            last_ui = 0.0
+            exp_re = re.compile(r"^=== Running experiment: (.+) ===")
+            ok_re = re.compile(r"^Success:\s*(.+)")
+            fail_re = re.compile(r"^Failed:\s*(.+)")
+            for line in proc.stdout:
+                line = line.rstrip("\n")
+                log_lines.append(line)
+                m = exp_re.match(line)
+                if m:
+                    current_exp = m.group(1)
+                if ok_re.match(line):
+                    successes += 1
+                    completed += 1
+                elif fail_re.match(line):
+                    failures += 1
+                    completed += 1
+                now = time.time()
+                if now - last_ui > 0.1:
+                    progress = int((completed / max(total, 1)) * 100)
+                    progress_box.progress(min(progress, 100))
+                    log_area.text_area("Run log", value="\n".join(log_lines[-500:]), height=420, disabled=True)
+                    status_box.info(f"Running… {completed}/{total} done | ✓ {successes} • ✗ {failures}" + (f" | current: {current_exp}" if current_exp else ""))
+                    last_ui = now
+            ret = proc.wait()
+            progress_box.progress(100)
+            log_area.text_area("Run log", value="\n".join(log_lines[-800:]), height=420, disabled=True)
+            if ret != 0:
+                feedback_placeholder.error(f"❌ Sweep run failed with exit code {ret}. See logs above.")
             else:
-                feedback_placeholder.success("✅ Sweep finished or started successfully (see logs above).")
+                feedback_placeholder.success(f"✅ Sweep complete: {successes} succeeded, {failures} failed.")
+            runs = st.session_state.get("sweep_runs", [])
+            runs.append({
+                "out_dir": str(out_dir_path),
+                "total": total,
+                "successes": successes,
+                "failures": failures,
+                "timestamp": time.time(),
+            })
+            st.session_state["sweep_runs"] = runs
         except Exception as e:
             feedback_placeholder.error(f"❌ Failed to regenerate and run sweep: {e}")
