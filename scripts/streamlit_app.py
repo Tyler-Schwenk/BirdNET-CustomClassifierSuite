@@ -158,6 +158,15 @@ def main():
                         debug_container=left_col,
                     )
 
+                # Download the currently visible leaderboard as CSV (includes toggled columns)
+                if 'table_df' in locals() and table_df is not None:
+                    with right_col:
+                        st.download_button(
+                            "Download table (CSV)",
+                            data=table_df.to_csv(index=False).encode("utf-8"),
+                            file_name="leaderboard_table.csv",
+                        )
+
                 # Charts based on current leaderboard table
                 if table_df is not None and not table_df.empty:
                     from birdnet_custom_classifier_suite.ui.analysis import plots as charts
@@ -169,6 +178,7 @@ def main():
                                 show_error_bars=bool(opts.get("show_error_bars")),
                                 y_min=opts.get("y_min"), y_max=opts.get("y_max"),
                                 debug=bool(opts.get("debug")),
+                                chart_type=str(opts.get("chart_type", "Auto")),
                             )
 
                 selected_sig = st.session_state.get('selected_signature')
@@ -184,14 +194,7 @@ def main():
                         except Exception as e:
                             st.error(f"Failed to fetch signature details: {e}")
 
-                # Download the currently visible leaderboard as CSV (includes toggled columns)
-                if 'table_df' in locals() and table_df is not None:
-                    with right_col:
-                        st.download_button(
-                            "Download table (CSV)",
-                            data=table_df.to_csv(index=False).encode("utf-8"),
-                            file_name="leaderboard_table.csv",
-                        )
+                
         else:
             with right_col:
                 st.info("Load data using the controls to begin analysis.")

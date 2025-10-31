@@ -95,7 +95,13 @@ def plot_controls(table_df: pd.DataFrame, container=None) -> Tuple[Optional[str]
         return None, None, {}
 
     with panel.expander("Charts", expanded=True):
-        c1, c2 = st.columns(2)
+        c0, c1, c2 = st.columns(3)
+        with c0:
+            chart_type = st.selectbox(
+                "Chart type",
+                options=["Auto", "Bars", "Points", "Line"],
+                index=0,
+                help="Auto: scatter for numeric X, bars for categorical X. Override to force Bars/Points/Line.")
         with c1:
             y_label_to_col = {lbl: col for lbl, col in metric_choices}
             y_label_default = next(iter(y_label_to_col.keys()))
@@ -132,11 +138,12 @@ def plot_controls(table_df: pd.DataFrame, container=None) -> Tuple[Optional[str]
             "show_error_bars": show_error_bars if has_std else False,
             "y_min": y_min,
             "y_max": y_max,
+            "chart_type": chart_type,
             "debug": debug_plot,
         }
 
 
-def render_chart(table_df: pd.DataFrame, x_col: str, y_col: str, container=None, *, show_error_bars: bool = False, y_min: Optional[float] = None, y_max: Optional[float] = None, debug: bool = False) -> None:
+def render_chart(table_df: pd.DataFrame, x_col: str, y_col: str, container=None, *, show_error_bars: bool = False, y_min: Optional[float] = None, y_max: Optional[float] = None, debug: bool = False, chart_type: str = "Auto") -> None:
     """Render a simple chart for the selected axes.
 
     - If X is numeric: scatter with rule for median per X (optional)
@@ -178,6 +185,12 @@ def render_chart(table_df: pd.DataFrame, x_col: str, y_col: str, container=None,
     # Common y-scale (use alt.Undefined when not set to avoid odd interactions)
     y_scale = alt.Scale(domain=[y_min, y_max]) if (y_min is not None and y_max is not None and y_min < y_max) else alt.Undefined
 
+    # Resolve chart type
+    if chart_type == "Auto":
+        chart_type_resolved = "Points" if x_numeric else "Bars"
+    else:
+        chart_type_resolved = chart_type
+
     if debug:
         panel.write("Plot debug:")
         panel.json({
@@ -190,6 +203,7 @@ def render_chart(table_df: pd.DataFrame, x_col: str, y_col: str, container=None,
             "dtypes": {c: str(dt) for c, dt in df.dtypes.items()},
             "x_nans": int(df[x_col].isna().sum()) if x_col in df.columns else None,
             "y_nans": int(df[y_col].isna().sum()) if y_col in df.columns else None,
+            "chart_type_resolved": chart_type_resolved,
         })
         try:
             panel.write("Preview of plotting data (first 10 rows):")
@@ -197,7 +211,7 @@ def render_chart(table_df: pd.DataFrame, x_col: str, y_col: str, container=None,
         except Exception:
             pass
 
-    if x_numeric:
+    if chart_type_resolved == "Points":
         # Use safe column names to avoid issues with dots in field names
         df_plot = df.rename(columns={x_col: "__x__", y_col: "__y__"}).copy()
         ystd_field = None
@@ -222,15 +236,44 @@ def render_chart(table_df: pd.DataFrame, x_col: str, y_col: str, container=None,
             df_err = df_plot.copy()
             df_err["__y_lower__"] = df_err["__y__"] - df_err[ystd_field]
             df_err["__y_upper__"] = df_err["__y__"] + df_err[ystd_field]
-            err = alt.Chart(df_err).mark_rule(clip=True).encode(
+            err = alt.Chart(df_err).mark_rule(clip=True, strokeWidth=2.5).encode(
                 x=alt.X("__x__:Q"),
                 y=alt.Y("__y_lower__:Q", title=y_title, scale=y_scale),
                 y2=alt.Y2("__y_upper__:Q"),
                 tooltip=[alt.Tooltip("__x__", title=x_title), alt.Tooltip("__y__", title=y_title)]
             )
-            chart = err + base
-        panel.altair_chart(chart.interactive().properties(height=320), use_container_width=True)
-    else:
+            caps_lower = alt.Chart(df_err).mark_tick(clip=True, thickness=2, size=12).encode(
+                x=alt.X("__x__:Q"), y=alt.Y("__y_lower__:Q", scale=y_scale)
+            )
+            caps_upper = alt.Chart(df_err).mark_tick(clip=True, thickness=2, size=12).encode(
+                x=alt.X("__x__:Q"), y=alt.Y("__y_upper__:Q", scale=y_scale)
+            )
+            chart = err + caps_lower + caps_upper + base
+        final_chart = chart.interactive().properties(height=320)
+        panel.altair_chart(final_chart, use_container_width=True)
+        
+        # Download buttons for the chart
+        try:
+            import vl_convert as vlc
+            base_name = f"chart_{x_title.replace(' ', '_')}_{y_title.replace(' ', '_')}"
+            col1, col2 = panel.columns(2)
+            png_data = vlc.vegalite_to_png(final_chart.to_json(), scale=2)
+            col1.download_button(
+                label="Download PNG",
+                data=png_data,
+                file_name=f"{base_name}.png",
+                mime="image/png"
+            )
+            svg_data = vlc.vegalite_to_svg(final_chart.to_json())
+            col2.download_button(
+                label="Download SVG",
+                data=svg_data,
+                file_name=f"{base_name}.svg",
+                mime="image/svg+xml"
+            )
+        except Exception as e:
+            panel.caption(f"Download unavailable: {e}")
+    elif chart_type_resolved == "Bars":
         # Aggregate by category: mean and std across rows (of y_mean)
         agg = df.groupby(x_col)[y_col].agg(['mean', 'std']).reset_index()
         # Determine if we are using a custom Y domain
@@ -253,14 +296,14 @@ def render_chart(table_df: pd.DataFrame, x_col: str, y_col: str, container=None,
         if custom_domain:
             # Anchor bars at the lower bound explicitly using a baseline column for y and mean_plot for y2
             bar = alt.Chart(agg).mark_bar(clip=True).encode(
-                x=alt.X(f"{x_col}:N", sort=sort_field, title=x_title),
+                x=alt.X(f"{x_col}:{'Q' if x_numeric else 'N'}", sort=sort_field, title=x_title),
                 y=alt.Y("baseline:Q", title=y_title, scale=y_scale_cat),
                 y2=alt.Y2("mean_plot:Q"),
                 tooltip=[x_col, alt.Tooltip("mean:Q", title=y_title), alt.Tooltip("std:Q", title="STD")]
             )
         else:
             bar = alt.Chart(agg).mark_bar(clip=True).encode(
-                x=alt.X(f"{x_col}:N", sort=sort_field, title=x_title),
+                x=alt.X(f"{x_col}:{'Q' if x_numeric else 'N'}", sort=sort_field, title=x_title),
                 y=alt.Y("mean_plot:Q", title=y_title, scale=y_scale_cat),
                 tooltip=[x_col, alt.Tooltip("mean:Q", title=y_title), alt.Tooltip("std:Q", title="STD")]
             )
@@ -275,24 +318,105 @@ def render_chart(table_df: pd.DataFrame, x_col: str, y_col: str, container=None,
             elif n_below > 0:
                 panel.caption(f"{n_below}/{n_total} categories fall below the Y range and are flattened to the baseline.")
             baseline_ticks = alt.Chart(agg).mark_tick(color='#666', thickness=2, clip=True).encode(
-                x=alt.X(f"{x_col}:N", sort=sort_field),
+                x=alt.X(f"{x_col}:{'Q' if x_numeric else 'N'}", sort=sort_field),
                 y=alt.Y("baseline:Q", scale=y_scale_cat),
             )
             chart = chart + baseline_ticks
 
         # Add a point overlay at the (possibly clamped) mean to ensure something is visible even with flat bars
         point_overlay = alt.Chart(agg).mark_point(size=70, color='#1f77b4', filled=True, clip=True).encode(
-            x=alt.X(f"{x_col}:N", sort=sort_field),
+            x=alt.X(f"{x_col}:{'Q' if x_numeric else 'N'}", sort=sort_field),
             y=alt.Y("mean_plot:Q", scale=y_scale_cat),
             tooltip=[x_col, alt.Tooltip("mean:Q", title=y_title)],
         )
         chart = chart + point_overlay
         if show_error_bars and not agg['std'].isna().all():
-            err = alt.Chart(agg).mark_rule(clip=True).encode(
-                x=alt.X(f"{x_col}:N"),
+            err = alt.Chart(agg).mark_rule(clip=True, strokeWidth=2.5).encode(
+                x=alt.X(f"{x_col}:{'Q' if x_numeric else 'N'}"),
                 y=alt.Y("y_lower_plot:Q", title=y_title, scale=y_scale_cat),
                 y2=alt.Y2("y_upper_plot:Q"),
             )
-            chart = chart + err
+            caps_lower = alt.Chart(agg).mark_tick(clip=True, thickness=2, size=12).encode(
+                x=alt.X(f"{x_col}:{'Q' if x_numeric else 'N'}"), y=alt.Y("y_lower_plot:Q", scale=y_scale_cat)
+            )
+            caps_upper = alt.Chart(agg).mark_tick(clip=True, thickness=2, size=12).encode(
+                x=alt.X(f"{x_col}:{'Q' if x_numeric else 'N'}"), y=alt.Y("y_upper_plot:Q", scale=y_scale_cat)
+            )
+            chart = chart + err + caps_lower + caps_upper
         # Render with fixed height
-        panel.altair_chart(chart.properties(height=320), use_container_width=True)
+        final_chart = chart.properties(height=320)
+        panel.altair_chart(final_chart, use_container_width=True)
+        
+        # Download buttons for the chart
+        try:
+            import vl_convert as vlc
+            base_name = f"chart_{x_title.replace(' ', '_')}_{y_title.replace(' ', '_')}"
+            col1, col2 = panel.columns(2)
+            png_data = vlc.vegalite_to_png(final_chart.to_json(), scale=2)
+            col1.download_button(
+                label="Download PNG",
+                data=png_data,
+                file_name=f"{base_name}.png",
+                mime="image/png"
+            )
+            svg_data = vlc.vegalite_to_svg(final_chart.to_json())
+            col2.download_button(
+                label="Download SVG",
+                data=svg_data,
+                file_name=f"{base_name}.svg",
+                mime="image/svg+xml"
+            )
+        except Exception as e:
+            panel.caption(f"Download unavailable: {e}")
+    else:
+        # Line chart: aggregate by X and connect means
+        agg = df.groupby(x_col)[y_col].agg(['mean', 'std']).reset_index().sort_values(by=x_col)
+        custom_domain = (y_min is not None and y_max is not None and y_min < y_max)
+        y_scale_line = alt.Scale(domain=[y_min, y_max], zero=False, clamp=True) if custom_domain else alt.Undefined
+
+        base_line = alt.Chart(agg).mark_line(point=True, clip=True).encode(
+            x=alt.X(f"{x_col}:{'Q' if x_numeric else 'N'}", title=x_title),
+            y=alt.Y("mean:Q", title=y_title, scale=y_scale_line),
+            tooltip=[x_col, alt.Tooltip("mean:Q", title=y_title), alt.Tooltip("std:Q", title="STD")]
+        )
+        chart = base_line
+        if show_error_bars and not agg['std'].isna().all():
+            agg_err = agg.copy()
+            agg_err['y_lower'] = agg_err['mean'] - agg_err['std'].fillna(0)
+            agg_err['y_upper'] = agg_err['mean'] + agg_err['std'].fillna(0)
+            err = alt.Chart(agg_err).mark_rule(clip=True, strokeWidth=2.5).encode(
+                x=alt.X(f"{x_col}:{'Q' if x_numeric else 'N'}"),
+                y=alt.Y("y_lower:Q", scale=y_scale_line),
+                y2=alt.Y2("y_upper:Q"),
+            )
+            caps_lower = alt.Chart(agg_err).mark_tick(clip=True, thickness=2, size=12).encode(
+                x=alt.X(f"{x_col}:{'Q' if x_numeric else 'N'}"), y=alt.Y("y_lower:Q", scale=y_scale_line)
+            )
+            caps_upper = alt.Chart(agg_err).mark_tick(clip=True, thickness=2, size=12).encode(
+                x=alt.X(f"{x_col}:{'Q' if x_numeric else 'N'}"), y=alt.Y("y_upper:Q", scale=y_scale_line)
+            )
+            chart = err + caps_lower + caps_upper + base_line
+        final_chart = chart.properties(height=320)
+        panel.altair_chart(final_chart, use_container_width=True)
+        
+        # Download buttons for the chart
+        try:
+            import vl_convert as vlc
+            base_name = f"chart_{x_title.replace(' ', '_')}_{y_title.replace(' ', '_')}"
+            col1, col2 = panel.columns(2)
+            png_data = vlc.vegalite_to_png(final_chart.to_json(), scale=2)
+            col1.download_button(
+                label="Download PNG",
+                data=png_data,
+                file_name=f"{base_name}.png",
+                mime="image/png"
+            )
+            svg_data = vlc.vegalite_to_svg(final_chart.to_json())
+            col2.download_button(
+                label="Download SVG",
+                data=svg_data,
+                file_name=f"{base_name}.svg",
+                mime="image/svg+xml"
+            )
+        except Exception as e:
+            panel.caption(f"Download unavailable: {e}")
