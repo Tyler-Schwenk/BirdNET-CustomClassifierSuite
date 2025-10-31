@@ -60,6 +60,22 @@ def _is_numeric_series(s: pd.Series) -> bool:
         return False
 
 
+def _coerce_numeric_series(s: pd.Series) -> pd.Series:
+    """Best-effort conversion of a Series to numeric.
+
+    - First try plain to_numeric.
+    - If that fails (all NaN), try extracting the first number substring.
+    """
+    out = pd.to_numeric(s, errors='coerce')
+    if out.isna().all():
+        try:
+            extracted = s.astype(str).str.extract(r'([-+]?\d*\.?\d+)')[0]
+            out = pd.to_numeric(extracted, errors='coerce')
+        except Exception:
+            pass
+    return out
+
+
 def plot_controls(table_df: pd.DataFrame, container=None) -> Tuple[Optional[str], Optional[str], Dict[str, Optional[float]]]:
     """Render plotting controls and return (x_col, y_col).
 
@@ -150,10 +166,10 @@ def render_chart(table_df: pd.DataFrame, x_col: str, y_col: str, container=None,
     # Detect numeric vs categorical X
     x_numeric = _is_numeric_series(df[x_col])
 
-    # Ensure types for Altair
+    # Ensure types for Altair (robust coercion)
     if x_numeric:
-        df[x_col] = pd.to_numeric(df[x_col], errors='coerce')
-    df[y_col] = pd.to_numeric(df[y_col], errors='coerce')
+        df[x_col] = _coerce_numeric_series(df[x_col])
+    df[y_col] = _coerce_numeric_series(df[y_col])
 
     # Ensure std numeric if present
     if y_std_col and y_std_col in df.columns:
@@ -171,6 +187,9 @@ def render_chart(table_df: pd.DataFrame, x_col: str, y_col: str, container=None,
             "rows": len(df),
             "y_min": y_min,
             "y_max": y_max,
+            "dtypes": {c: str(dt) for c, dt in df.dtypes.items()},
+            "x_nans": int(df[x_col].isna().sum()) if x_col in df.columns else None,
+            "y_nans": int(df[y_col].isna().sum()) if y_col in df.columns else None,
         })
         try:
             panel.write("Preview of plotting data (first 10 rows):")
@@ -179,23 +198,35 @@ def render_chart(table_df: pd.DataFrame, x_col: str, y_col: str, container=None,
             pass
 
     if x_numeric:
-        base = alt.Chart(df).mark_point(filled=True, size=80, clip=True).encode(
-            x=alt.X(f"{x_col}:Q", title=x_title),
-            y=alt.Y(f"{y_col}:Q", title=y_title, scale=y_scale),
-            tooltip=[x_col, y_col]
+        # Use safe column names to avoid issues with dots in field names
+        df_plot = df.rename(columns={x_col: "__x__", y_col: "__y__"}).copy()
+        ystd_field = None
+        if show_error_bars and (y_std_col is not None) and (y_std_col in df.columns) and not df[y_std_col].isna().all():
+            # y_std is already present in df; just rename in df_plot to avoid column overlap
+            if y_std_col in df_plot.columns:
+                df_plot = df_plot.rename(columns={y_std_col: "__ystd__"})
+            else:
+                # Fallback: align and insert the std column explicitly
+                df_plot["__ystd__"] = df[y_std_col].values
+            ystd_field = "__ystd__"
+
+        base = alt.Chart(df_plot).mark_point(filled=True, size=80, clip=True).encode(
+            x=alt.X("__x__:Q", title=x_title),
+            y=alt.Y("__y__:Q", title=y_title, scale=y_scale),
+            tooltip=[alt.Tooltip("__x__", title=x_title), alt.Tooltip("__y__", title=y_title)]
         )
         chart = base
 
         # Add per-point error bars if requested and std available
-        if show_error_bars and (y_std_col is not None) and (y_std_col in df.columns) and not df[y_std_col].isna().all():
-            df_err = df.copy()
-            df_err["y_lower"] = df_err[y_col] - df_err[y_std_col]
-            df_err["y_upper"] = df_err[y_col] + df_err[y_std_col]
+        if ystd_field is not None:
+            df_err = df_plot.copy()
+            df_err["__y_lower__"] = df_err["__y__"] - df_err[ystd_field]
+            df_err["__y_upper__"] = df_err["__y__"] + df_err[ystd_field]
             err = alt.Chart(df_err).mark_rule(clip=True).encode(
-                x=alt.X(f"{x_col}:Q"),
-                y=alt.Y("y_lower:Q", title=y_title, scale=y_scale),
-                y2=alt.Y2("y_upper:Q"),
-                tooltip=[x_col, y_col]
+                x=alt.X("__x__:Q"),
+                y=alt.Y("__y_lower__:Q", title=y_title, scale=y_scale),
+                y2=alt.Y2("__y_upper__:Q"),
+                tooltip=[alt.Tooltip("__x__", title=x_title), alt.Tooltip("__y__", title=y_title)]
             )
             chart = err + base
         panel.altair_chart(chart.interactive().properties(height=320), use_container_width=True)
@@ -234,6 +265,28 @@ def render_chart(table_df: pd.DataFrame, x_col: str, y_col: str, container=None,
                 tooltip=[x_col, alt.Tooltip("mean:Q", title=y_title), alt.Tooltip("std:Q", title="STD")]
             )
         chart = bar
+        # When many categories fall below the selected domain, bars become flat (zero height).
+        # Add baseline ticks for visibility and inform the user.
+        if custom_domain:
+            n_total = len(agg)
+            n_below = int((agg['mean'] < y_min).sum()) if y_min is not None else 0
+            if n_below == n_total:
+                panel.caption("All categories are below the selected Y range; showing baseline ticks at the lower bound.")
+            elif n_below > 0:
+                panel.caption(f"{n_below}/{n_total} categories fall below the Y range and are flattened to the baseline.")
+            baseline_ticks = alt.Chart(agg).mark_tick(color='#666', thickness=2, clip=True).encode(
+                x=alt.X(f"{x_col}:N", sort=sort_field),
+                y=alt.Y("baseline:Q", scale=y_scale_cat),
+            )
+            chart = chart + baseline_ticks
+
+        # Add a point overlay at the (possibly clamped) mean to ensure something is visible even with flat bars
+        point_overlay = alt.Chart(agg).mark_point(size=70, color='#1f77b4', filled=True, clip=True).encode(
+            x=alt.X(f"{x_col}:N", sort=sort_field),
+            y=alt.Y("mean_plot:Q", scale=y_scale_cat),
+            tooltip=[x_col, alt.Tooltip("mean:Q", title=y_title)],
+        )
+        chart = chart + point_overlay
         if show_error_bars and not agg['std'].isna().all():
             err = alt.Chart(agg).mark_rule(clip=True).encode(
                 x=alt.X(f"{x_col}:N"),
