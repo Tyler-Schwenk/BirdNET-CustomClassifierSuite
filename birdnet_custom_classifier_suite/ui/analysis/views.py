@@ -286,7 +286,7 @@ def metric_controls(state: UIState, df: Optional[pd.DataFrame] = None, container
 def leaderboard(summaries: List[ConfigSummary],
                 on_select: Optional[Callable[[str], None]] = None,
                 show_aggrid_debug: bool = False,
-                debug_container=None) -> None:
+                debug_container=None):
     """Render the leaderboard table with top configurations.
 
     This renders an interactive table using AgGrid when available. Selecting
@@ -298,7 +298,7 @@ def leaderboard(summaries: List[ConfigSummary],
 
     # Optional config column controls
     st.write("**Show additional columns:**")
-    cols_ctrl = st.columns(6)
+    cols_ctrl = st.columns(10)
     with cols_ctrl[0]:
         show_quality = st.checkbox("Quality", value=False, key='lb_quality')
     with cols_ctrl[1]:
@@ -311,6 +311,14 @@ def leaderboard(summaries: List[ConfigSummary],
         show_label_smoothing = st.checkbox("Label Smoothing", value=False, key='lb_label_smoothing')
     with cols_ctrl[5]:
         show_focal_loss = st.checkbox("Focal Loss", value=False, key='lb_focal_loss')
+    with cols_ctrl[6]:
+        show_hidden_units = st.checkbox("Hidden Units", value=False, key='lb_hidden_units')
+    with cols_ctrl[7]:
+        show_dropout = st.checkbox("Dropout", value=False, key='lb_dropout')
+    with cols_ctrl[8]:
+        show_learning_rate = st.checkbox("Learning Rate", value=False, key='lb_learning_rate')
+    with cols_ctrl[9]:
+        show_batch_size = st.checkbox("Batch Size", value=False, key='lb_batch_size')
 
     # Helper to format config values nicely
     def format_config_value(val):
@@ -383,6 +391,23 @@ def leaderboard(summaries: List[ConfigSummary],
                   summary.config_values.get('focal_loss',
                   summary.config_values.get('focal-loss'))))))
             row["Focal Loss"] = format_config_value(val)
+        if show_hidden_units:
+            val = summary.config_values.get('training_args.hidden_units',
+                  summary.config_values.get('training.hidden_units'))
+            row["Hidden Units"] = format_config_value(val)
+        if show_dropout:
+            val = summary.config_values.get('training_args.dropout',
+                  summary.config_values.get('training.dropout'))
+            row["Dropout"] = format_config_value(val)
+        if show_learning_rate:
+            val = summary.config_values.get('training_args.learning_rate',
+                  summary.config_values.get('training.learning_rate'))
+            row["Learning Rate"] = format_config_value(val)
+        if show_batch_size:
+            val = summary.config_values.get('training.batch_size',
+                  summary.config_values.get('training_args.batch_size',
+                  summary.config_values.get('batch_size')))
+            row["Batch Size"] = format_config_value(val)
         
         for name, metric in summary.metrics.items():
             short_name = name.replace("metrics.", "").replace(".best_f1", "")
@@ -426,6 +451,14 @@ def leaderboard(summaries: List[ConfigSummary],
             config_column_names.append('Label Smoothing')
         if show_focal_loss:
             config_column_names.append('Focal Loss')
+        if show_hidden_units:
+            config_column_names.append('Hidden Units')
+        if show_dropout:
+            config_column_names.append('Dropout')
+        if show_learning_rate:
+            config_column_names.append('Learning Rate')
+        if show_batch_size:
+            config_column_names.append('Batch Size')
 
         # Identify metric columns by those not Signature/Experiments/Config columns
         metric_cols = [c for c in df.columns if c not in (['Signature', 'Experiments'] + config_column_names)]
@@ -480,6 +513,14 @@ def leaderboard(summaries: List[ConfigSummary],
             gb.configure_column('Label Smoothing', minWidth=100, width=140)
         if show_focal_loss and 'Focal Loss' in df_display.columns:
             gb.configure_column('Focal Loss', minWidth=80, width=110)
+        if show_hidden_units and 'Hidden Units' in df_display.columns:
+            gb.configure_column('Hidden Units', minWidth=100, width=120)
+        if show_dropout and 'Dropout' in df_display.columns:
+            gb.configure_column('Dropout', minWidth=90, width=110)
+        if show_learning_rate and 'Learning Rate' in df_display.columns:
+            gb.configure_column('Learning Rate', minWidth=120, width=140)
+        if show_batch_size and 'Batch Size' in df_display.columns:
+            gb.configure_column('Batch Size', minWidth=90, width=110)
 
         # Add formatted mean columns and hidden std columns
         for mc in metric_cols:
@@ -587,6 +628,8 @@ def leaderboard(summaries: List[ConfigSummary],
                         on_select(sig)
                         if show_debug:
                             panel.write(f"Selected signature: {sig}")
+        # Return the current display DataFrame for optional download by caller
+        return df_display
     else:
         # Fallback to simple display + selectbox
         st.write("Click a signature to see details:")
@@ -595,6 +638,7 @@ def leaderboard(summaries: List[ConfigSummary],
             selected = st.selectbox("Or select a signature here:", options=df['Signature'].tolist())
             if selected:
                 on_select(selected)
+        return df
 
 
 def signature_details(breakdown: Optional[PerRunBreakdown]) -> None:

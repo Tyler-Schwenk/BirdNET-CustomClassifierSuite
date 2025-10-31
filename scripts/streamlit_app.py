@@ -151,7 +151,7 @@ def main():
                     show_ag = st.checkbox("Show AgGrid response", value=False, key="aggrid_debug_checkbox")
                 with right_col:
                     st.header("Leaderboard — Top configs")
-                    leaderboard(
+                    table_df = leaderboard(
                         state.summaries,
                         on_select=lambda sig: st.session_state.__setitem__('selected_signature', sig),
                         show_aggrid_debug=show_ag,
@@ -171,23 +171,14 @@ def main():
                         except Exception as e:
                             st.error(f"Failed to fetch signature details: {e}")
 
-                # Download buttons
-                import pandas as pd
-                summary_df = pd.DataFrame([
-                    {
-                        "signature": s.signature,
-                        "experiments": ", ".join(s.experiment_names),
-                        **{f"{name}_mean": m.mean for name, m in s.metrics.items()},
-                        **{f"{name}_std": m.std for name, m in s.metrics.items()},
-                    }
-                    for s in state.summaries
-                ])
-                with right_col:
-                    st.download_button(
-                        "Download summary (CSV)",
-                        data=summary_df.to_csv(index=False).encode("utf-8"),
-                        file_name="experiment_summary.csv",
-                    )
+                # Download the currently visible leaderboard as CSV (includes toggled columns)
+                if 'table_df' in locals() and table_df is not None:
+                    with right_col:
+                        st.download_button(
+                            "Download table (CSV)",
+                            data=table_df.to_csv(index=False).encode("utf-8"),
+                            file_name="leaderboard_table.csv",
+                        )
         else:
             with right_col:
                 st.info("Load data using the controls to begin analysis.")
