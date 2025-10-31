@@ -158,6 +158,19 @@ def main():
                         debug_container=left_col,
                     )
 
+                # Charts based on current leaderboard table
+                if table_df is not None and not table_df.empty:
+                    from birdnet_custom_classifier_suite.ui.analysis import plots as charts
+                    with right_col:
+                        x_col, y_col, opts = charts.plot_controls(table_df, container=right_col)
+                        if x_col and y_col:
+                            charts.render_chart(
+                                table_df, x_col, y_col, container=right_col,
+                                show_error_bars=bool(opts.get("show_error_bars")),
+                                y_min=opts.get("y_min"), y_max=opts.get("y_max"),
+                                debug=bool(opts.get("debug")),
+                            )
+
                 selected_sig = st.session_state.get('selected_signature')
                 if selected_sig:
                     with right_col:
