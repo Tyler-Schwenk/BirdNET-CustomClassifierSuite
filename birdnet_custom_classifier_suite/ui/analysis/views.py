@@ -192,10 +192,11 @@ def metric_controls(state: UIState, df: Optional[pd.DataFrame] = None, container
         )
             state.top_n = st.number_input(
             "Top N",
-            min_value=1,
+            min_value=0,
             max_value=200,
             value=state.top_n,
             step=1,
+            help="Set to 0 to show all results (no Top N limit)."
         )
             precision_input = st.number_input(
             "Precision floor (0-1 or percent)",
