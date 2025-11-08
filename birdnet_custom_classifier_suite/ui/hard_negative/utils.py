@@ -74,7 +74,7 @@ def save_results_csv(
     source_label: str,
     model_label: Optional[str],
     st_: st
-) -> None:
+) -> Path:
     """
     Save aggregated per-file results CSV with metadata.
     
@@ -85,6 +85,9 @@ def save_results_csv(
         source_label: Label indicating source of results
         model_label: Label indicating model used
         st_: Streamlit module or container
+    
+    Returns:
+        Path to saved CSV file
     """
     save_root.mkdir(parents=True, exist_ok=True)
     out_csv = save_root / f'low_quality_radr_max_{stamp}.csv'
@@ -96,9 +99,11 @@ def save_results_csv(
     
     try:
         df_to_save.to_csv(out_csv, index=False)
-        st_.info(f"📄 Saved per-file RADR CSV to: `{out_csv}`")
+        st_.success(f"� **Results saved to:** `{out_csv}`")
+        return out_csv
     except Exception as e:
         st_.warning(f"⚠️ Failed to write results CSV: {e}")
+        return out_csv
 
 
 def copy_files(paths: List[Path], dest: Path) -> int:

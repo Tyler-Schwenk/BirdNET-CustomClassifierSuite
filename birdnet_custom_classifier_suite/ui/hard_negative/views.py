@@ -251,11 +251,23 @@ def _run_inference_workflow(
             model_source, selected_experiment, model_choice, uploaded_model
         )
         save_root = analyzer_out_root if analyzer_out_root else out_root_path
-        utils.save_results_csv(df_matched, save_root, stamp, source_label, model_label, st_)
+        csv_path = utils.save_results_csv(df_matched, save_root, stamp, source_label, model_label, st_)
+        
+        # Provide download button
+        with open(csv_path, 'rb') as f:
+            csv_data = f.read()
+        st_.download_button(
+            label="📥 Download Results CSV",
+            data=csv_data,
+            file_name=csv_path.name,
+            mime='text/csv',
+            type="primary"
+        )
         
         # Store in session state
         st.session_state['hn_df'] = df_matched
         st.session_state['hn_input_dir'] = str(input_dir)
+        st.session_state['hn_csv_path'] = str(csv_path)
         
         return df_matched
     
@@ -584,6 +596,36 @@ def panel(container=None):
     df_display = df_matched.sort_values("radr_max_confidence", ascending=False).reset_index(drop=True)
     df_display.index.name = 'idx'
     st_.dataframe(df_display, use_container_width=True)
+    
+    # Download current results
+    st_.markdown("### 📥 Download Results")
+    st_.write("This CSV contains each file with its maximum RADR confidence score for hard-negative mining.")
+    
+    # Check if we have a saved path from the inference workflow
+    if 'hn_csv_path' in st.session_state and Path(st.session_state['hn_csv_path']).exists():
+        csv_path = Path(st.session_state['hn_csv_path'])
+        with open(csv_path, 'rb') as f:
+            csv_data = f.read()
+        st_.download_button(
+            label="📥 Download Results CSV (from disk)",
+            data=csv_data,
+            file_name=csv_path.name,
+            mime='text/csv',
+            type="primary",
+            key='download_saved_csv'
+        )
+    else:
+        # Generate from current DataFrame
+        csv_bytes = df_display.to_csv(index=False).encode('utf-8')
+        timestamp_name = f"low_quality_radr_max_{int(time.time())}.csv"
+        st_.download_button(
+            label="📥 Download Results CSV",
+            data=csv_bytes,
+            file_name=timestamp_name,
+            mime='text/csv',
+            type="primary",
+            key='download_generated_csv'
+        )
     
     n_preview = min(100, len(df_display))
     st_.caption(f"Showing {len(df_display)} candidates (top {n_preview} previewable). Use the selection controls below.")
