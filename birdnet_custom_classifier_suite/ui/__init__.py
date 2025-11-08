@@ -14,6 +14,8 @@ from birdnet_custom_classifier_suite.ui.analysis.views import (
     metric_controls,
     signature_details,
 )
+from birdnet_custom_classifier_suite.ui.hard_negative.views import panel as hard_negative_panel
+from birdnet_custom_classifier_suite.ui.file_management.views import panel as file_management_panel
 from birdnet_custom_classifier_suite.ui.common.types import (
     ConfigSummary,
     MetricGroup,
@@ -35,6 +37,8 @@ __all__ = [
     "leaderboard",
     "metric_controls",
     "signature_details",
+    "hard_negative_panel",
+    "file_management_panel",
     # Types
     "ConfigSummary",
     "MetricGroup",

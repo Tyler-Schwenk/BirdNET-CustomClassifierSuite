@@ -250,6 +250,20 @@ def render_chart(table_df: pd.DataFrame, x_col: str, y_col: str, container=None,
             )
             chart = err + caps_lower + caps_upper + base
         final_chart = chart.interactive().properties(height=320)
+        # Improve label visibility: bold axis titles and labels, larger font sizes
+        final_chart = final_chart.configure_axis(
+            titleFontSize=14,
+            labelFontSize=12,
+            titleFontWeight='bold',
+            labelFontWeight='bold'
+        ).configure_legend(
+            titleFontSize=13,
+            labelFontSize=12,
+            titleFontWeight='bold'
+        ).configure_title(
+            fontSize=14,
+            fontWeight='bold'
+        )
         panel.altair_chart(final_chart, use_container_width=True)
         
         # Download buttons for the chart
@@ -345,6 +359,20 @@ def render_chart(table_df: pd.DataFrame, x_col: str, y_col: str, container=None,
             chart = chart + err + caps_lower + caps_upper
         # Render with fixed height
         final_chart = chart.properties(height=320)
+        # Improve label visibility: bold axis titles and labels, larger font sizes
+        final_chart = final_chart.configure_axis(
+            titleFontSize=14,
+            labelFontSize=12,
+            titleFontWeight='bold',
+            labelFontWeight='bold'
+        ).configure_legend(
+            titleFontSize=13,
+            labelFontSize=12,
+            titleFontWeight='bold'
+        ).configure_title(
+            fontSize=14,
+            fontWeight='bold'
+        )
         panel.altair_chart(final_chart, use_container_width=True)
         
         # Download buttons for the chart
@@ -397,6 +425,20 @@ def render_chart(table_df: pd.DataFrame, x_col: str, y_col: str, container=None,
             )
             chart = err + caps_lower + caps_upper + base_line
         final_chart = chart.properties(height=320)
+        # Improve label visibility: bold axis titles and labels, larger font sizes
+        final_chart = final_chart.configure_axis(
+            titleFontSize=14,
+            labelFontSize=12,
+            titleFontWeight='bold',
+            labelFontWeight='bold'
+        ).configure_legend(
+            titleFontSize=13,
+            labelFontSize=12,
+            titleFontWeight='bold'
+        ).configure_title(
+            fontSize=14,
+            fontWeight='bold'
+        )
         panel.altair_chart(final_chart, use_container_width=True)
         
         # Download buttons for the chart

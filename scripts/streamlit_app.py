@@ -38,7 +38,7 @@ def main():
     if 'selected_signature' not in st.session_state:
         st.session_state['selected_signature'] = None
 
-    eval_tab, sweeps_tab = st.tabs(["Evaluate", "Sweeps"])
+    eval_tab, sweeps_tab, hn_tab, fm_tab = st.tabs(["Evaluate", "Sweeps", "Hard Negatives", "File Management"])
 
     # ---------------------- Evaluate Tab ---------------------- #
     with eval_tab:
@@ -227,6 +227,24 @@ def main():
 
         # Handle any button actions with the populated state
     sweep_actions(sweep_state, feedback_placeholder, save_clicked, generate_clicked, run_clicked, regen_run_clicked, run_output_container)
+
+    # ---------------------- Hard Negatives Tab ---------------------- #
+    with hn_tab:
+        st.header("Hard-negative mining")
+        from birdnet_custom_classifier_suite.ui import hard_negative_panel
+        try:
+            hard_negative_panel()
+        except Exception as e:
+            st.error(f"Hard-negative panel failed: {e}")
+
+    # ---------------------- File Management Tab ---------------------- #
+    with fm_tab:
+        st.header("File management")
+        from birdnet_custom_classifier_suite.ui import file_management_panel
+        try:
+            file_management_panel()
+        except Exception as e:
+            st.error(f"File-management panel failed: {e}")
 
 
 
