@@ -20,76 +20,13 @@ from typing import List, Optional, Tuple
 import pandas as pd
 import streamlit as st
 
-from birdnet_custom_classifier_suite.ui.hard_negative import curator, engine
-
-# Constants
-DEFAULT_INPUT = Path("scripts") / "input"
-DEFAULT_OUTPUT_ROOT = Path("scripts") / "curated"
-EXPERIMENTS_ROOT = Path('experiments')
-MODEL_EXTENSIONS = ('.tflite', '.h5', '.pt')
-UI_UPDATE_INTERVAL = 0.1  # seconds
-
-
-def _get_output_path_for_model_source(
-    model_source: str,
-    selected_experiment: Optional[str],
-    model_choice: Optional[Path],
-    uploaded_model: Optional[st.runtime.uploaded_file_manager.UploadedFile]
-) -> Tuple[Path, str, Optional[str]]:
-    """Determine output path, source label, and model label for results CSV."""
-    if model_source == "Use experiment (canonical analyzer args)" and selected_experiment and selected_experiment != '(none)':
-        return (
-            EXPERIMENTS_ROOT / selected_experiment / 'low_quality_inference' / 'results',
-            selected_experiment,
-            '(experiment-canonical)'
-        )
-    elif model_source == "Use a model file from an experiment" and selected_experiment and selected_experiment != '(none)':
-        return (
-            EXPERIMENTS_ROOT / selected_experiment / 'low_quality_inference' / 'results',
-            selected_experiment,
-            model_choice.name if model_choice else None
-        )
-    else:
-        model_label = None
-        if uploaded_model:
-            model_label = uploaded_model.name
-        elif model_choice:
-            model_label = model_choice.name
-        return (
-            Path('scripts') / 'low_quality_inference' / 'results',
-            '(ad-hoc)',
-            model_label
-        )
-
-
-def _save_results_csv(
-    df: pd.DataFrame,
-    save_root: Path,
-    stamp: int,
-    source_label: str,
-    model_label: Optional[str],
-    st_: st
-) -> None:
-    """Save aggregated per-file results CSV with metadata."""
-    save_root.mkdir(parents=True, exist_ok=True)
-    out_csv = save_root / f'low_quality_radr_max_{stamp}.csv'
-    
-    df_to_save = df.copy()
-    df_to_save['saved_at'] = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
-    df_to_save['source'] = source_label
-    df_to_save['model'] = model_label
-    
-    try:
-        df_to_save.to_csv(out_csv, index=False)
-        st_.info(f"📄 Saved per-file RADR CSV to: `{out_csv}`")
-    except Exception as e:
-        st_.warning(f"Failed to write results CSV: {e}")
+from birdnet_custom_classifier_suite.ui.hard_negative import constants, curator, engine, utils
 
 
 def _render_folder_picker(st_: st) -> str:
     """Render folder selection UI with native dialog and text input fallback."""
     if 'hn_input_dir' not in st.session_state:
-        st.session_state['hn_input_dir'] = str(DEFAULT_INPUT)
+        st.session_state['hn_input_dir'] = str(constants.DEFAULT_INPUT_DIR)
     
     try:
         if st_.button("📁 Choose folder (Explorer)", key='hn_choose_folder'):
@@ -128,9 +65,9 @@ def _get_experiment_list(st_: st) -> List[str]:
     
     if 'hn_exp_names' not in st.session_state:
         exp_names = []
-        if EXPERIMENTS_ROOT.exists():
+        if constants.EXPERIMENTS_ROOT.exists():
             try:
-                exp_names = sorted([p.name for p in EXPERIMENTS_ROOT.iterdir() if p.is_dir()])
+                exp_names = sorted([p.name for p in constants.EXPERIMENTS_ROOT.iterdir() if p.is_dir()])
             except Exception:
                 exp_names = []
         st.session_state['hn_exp_names'] = exp_names
@@ -166,12 +103,8 @@ def _render_model_selection(
         
         model_files = []
         if selected_experiment and selected_experiment != '(none)':
-            exp_dir = EXPERIMENTS_ROOT / selected_experiment
-            try:
-                for ext in MODEL_EXTENSIONS:
-                    model_files.extend(sorted(exp_dir.glob(f'*{ext}')))
-            except Exception:
-                pass
+            exp_dir = constants.EXPERIMENTS_ROOT / selected_experiment
+            model_files = utils.get_experiment_model_files(exp_dir)
         
         if model_files:
             model_labels = [str(p) for p in model_files]
@@ -208,7 +141,7 @@ def _stream_analyzer_logs(proc, out_root: Path, st_: st) -> Tuple[int, List[str]
         log_lines.append(line)
         now = time.time()
         
-        if now - last_ui > UI_UPDATE_INTERVAL:
+        if now - last_ui > constants.UI_UPDATE_INTERVAL:
             progress_counter = min(progress_counter + 1, 99)
             progress_box.progress(progress_counter)
             log_area.text("\n".join(log_lines[-100:]))
@@ -314,11 +247,11 @@ def _run_inference_workflow(
         st_.success(f"✅ Matched {len(df_matched)} candidates to files in `{input_dir}`")
         
         # Save results
-        out_root_path, source_label, model_label = _get_output_path_for_model_source(
+        out_root_path, source_label, model_label = utils.get_output_path_for_model_source(
             model_source, selected_experiment, model_choice, uploaded_model
         )
         save_root = analyzer_out_root if analyzer_out_root else out_root_path
-        _save_results_csv(df_matched, save_root, stamp, source_label, model_label, st_)
+        utils.save_results_csv(df_matched, save_root, stamp, source_label, model_label, st_)
         
         # Store in session state
         st.session_state['hn_df'] = df_matched
@@ -589,9 +522,9 @@ def panel(container=None):
         if agg_btn:
             paths = []
             if include_experiments:
-                paths.append(str(EXPERIMENTS_ROOT))
+                paths.append(str(constants.EXPERIMENTS_ROOT))
             if include_scripts:
-                paths.append(str(Path('scripts') / 'low_quality_inference' / 'results'))
+                paths.append(str(Path('scripts') / constants.RESULTS_DIR_NAME / 'results'))
             for p in [pp.strip() for pp in extra_paths.split(',') if pp.strip()]:
                 paths.append(p)
             
@@ -666,7 +599,7 @@ def panel(container=None):
     st_.subheader("📤 Export selection")
     
     out_label = st_.text_input("Subfolder label (e.g., hardneg_small)", value="hardneg_manual")
-    out_root = st_.text_input("Output root folder", value=str(DEFAULT_OUTPUT_ROOT))
+    out_root = st_.text_input("Output root folder", value=str(constants.DEFAULT_OUTPUT_ROOT))
     link_method = st_.selectbox(
         "Place files as",
         options=["copy", "hardlink", "symlink"],
