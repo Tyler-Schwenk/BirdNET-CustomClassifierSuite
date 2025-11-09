@@ -99,10 +99,10 @@ def save_results_csv(
     
     try:
         df_to_save.to_csv(out_csv, index=False)
-        st_.success(f"� **Results saved to:** `{out_csv}`")
+        st_.success(f"Results saved to: `{out_csv}`")
         return out_csv
     except Exception as e:
-        st_.warning(f"⚠️ Failed to write results CSV: {e}")
+        st_.warning(f"Failed to write results CSV: {e}")
         return out_csv
 
 
@@ -149,9 +149,9 @@ def write_selection_report(dest: Path, report: dict, st_: st) -> None:
     try:
         with open(dest / "selection_report.json", "w", encoding="utf-8") as fh:
             json.dump(report, fh, indent=2)
-        st_.info(f"📄 Wrote selection_report.json to `{dest}`")
+        st_.info(f"Wrote selection_report.json to `{dest}`")
     except Exception as e:
-        st_.warning(f"⚠️ Could not write selection report: {e}")
+        st_.warning(f"Could not write selection report: {e}")
 
 
 def validate_input_directory(input_dir: Path, st_: st) -> bool:
@@ -166,15 +166,15 @@ def validate_input_directory(input_dir: Path, st_: st) -> bool:
         True if valid, False otherwise
     """
     if not input_dir.exists():
-        st_.warning(f"⚠️ Input folder not found: `{input_dir}`")
+        st_.warning(f"Input folder not found: `{input_dir}`")
         return False
     
     try:
         if not any(input_dir.iterdir()):
-            st_.warning(f"⚠️ Input folder is empty: `{input_dir}`")
+            st_.warning(f"Input folder is empty: `{input_dir}`")
             return False
     except Exception as e:
-        st_.warning(f"⚠️ Cannot read input folder: {e}")
+        st_.warning(f"Cannot read input folder: {e}")
         return False
     
     return True

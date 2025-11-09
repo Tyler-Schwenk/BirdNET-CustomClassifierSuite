@@ -4,6 +4,8 @@ from pathlib import Path
 # Directory paths
 DEFAULT_INPUT_DIR = Path("scripts") / "input"
 DEFAULT_OUTPUT_ROOT = Path("scripts") / "curated"
+# Backwards-compatible alias used by the UI
+OUTPUT_ROOT = DEFAULT_OUTPUT_ROOT
 EXPERIMENTS_ROOT = Path("experiments")
 RESULTS_DIR_NAME = "low_quality_inference"
 
