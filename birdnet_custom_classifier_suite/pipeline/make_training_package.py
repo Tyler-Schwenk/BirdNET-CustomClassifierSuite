@@ -80,7 +80,76 @@ def isin_ci(series: pd.Series, values: List[str]) -> pd.Series:
     return series.astype(str).str.lower().isin(low)
 
 
-def filter_rows(df: pd.DataFrame, args: dict) -> Tuple[pd.DataFrame, pd.DataFrame]:
+def load_subset_files(subset_paths: List[str], audio_root: Path) -> pd.DataFrame:
+    """
+    Load audio files from specified subset folders (for data composition sweeps).
+    
+    These are curated file collections outside the manifest (e.g., hard negatives,
+    high-quality low-data samples) that should be added to the training set.
+    
+    Args:
+        subset_paths: List of folder paths relative to audio_root (e.g., 
+                      "curated/bestLowQuality/small", "curated/hardNeg/hardneg_conf_min_50")
+        audio_root: Base directory to resolve relative paths
+    
+    Returns:
+        DataFrame with same schema as manifest (resolved_path, label, quality, etc.)
+        with additional 'source_subset' column for tracking provenance
+    """
+    rows = []
+    for subset_str in subset_paths:
+        subset_dir = (audio_root / subset_str).resolve()
+        if not subset_dir.exists():
+            logging.warning(f"Subset directory not found (skipping): {subset_dir}")
+            continue
+        
+        # Find all audio files in the subset folder
+        audio_files = list(subset_dir.glob("*.wav")) + list(subset_dir.glob("*.mp3")) + list(subset_dir.glob("*.flac"))
+        logging.info(f"Loading subset: {subset_str} ({len(audio_files)} files)")
+        
+        # Infer label from path heuristics
+        subset_lower = subset_str.lower()
+        if "positive" in subset_lower or "bestlow" in subset_lower or "curated_pos" in subset_lower:
+            inferred_label = "positive"
+        elif "negative" in subset_lower or "hardneg" in subset_lower or "curated_neg" in subset_lower:
+            inferred_label = "negative"
+        else:
+            # Default: treat as negative (safer for hard-negative mining)
+            inferred_label = "negative"
+            logging.warning(f"Could not infer label for subset '{subset_str}', defaulting to 'negative'")
+        
+        for f in audio_files:
+            rows.append({
+                "resolved_path": str(f.resolve()),
+                "label": inferred_label,
+                "quality": "curated_subset",  # Mark as non-manifest
+                "call_type": "curated_subset",
+                "site": "curated",
+                "recorder_id": "subset",
+                "date": "",
+                "split": "train",
+                "filename": f.name,
+                "source_subset": subset_str
+            })
+    
+    df = pd.DataFrame(rows)
+    if not df.empty:
+        logging.info(f"Loaded {len(df)} total files from {len(subset_paths)} subset(s)")
+    return df
+
+
+def filter_rows(df: pd.DataFrame, args: dict, audio_root: Path) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Filter manifest rows and merge with custom subset files.
+    
+    Args:
+        df: Manifest DataFrame
+        args: Config dict with filters (quality, site, recorder_id, etc.)
+        audio_root: Base path for resolving subset folders
+    
+    Returns:
+        Tuple of (positive_df, negative_df) including both manifest and subset files
+    """
     logging.info(f"Filtering with args: {args}")
     logging.info(f"Available columns: {df.columns.tolist()}")
 
@@ -88,6 +157,7 @@ def filter_rows(df: pd.DataFrame, args: dict) -> Tuple[pd.DataFrame, pd.DataFram
     if "label" not in df.columns:
         raise KeyError("Manifest is missing 'label' column!")
 
+    # ===== STEP 1: Filter manifest-based files =====
     present = df[df["split"].str.lower().isin([s.lower() for s in args.get("splits", ["train"])])].copy()
     logging.info(f"Rows after split filter: {len(present)}")
 
@@ -108,10 +178,11 @@ def filter_rows(df: pd.DataFrame, args: dict) -> Tuple[pd.DataFrame, pd.DataFram
 
     filtered = present[cond].copy()
 
-    # Split pos/neg
+    # Split pos/neg from manifest
     pos = filtered[filtered["label"].str.lower() == "positive"].copy()
     neg = filtered[filtered["label"].str.lower() == "negative"].copy()
 
+    # Apply quality filter to manifest positives
     if args.get("quality"):
         pos = pos[pos["quality"].str.lower().isin([q.lower() for q in args["quality"]])]
     if args.get("call_type"):
@@ -120,7 +191,43 @@ def filter_rows(df: pd.DataFrame, args: dict) -> Tuple[pd.DataFrame, pd.DataFram
     if not args.get("include_negatives", True):
         neg = neg.iloc[0:0]
 
-    logging.info(f"Selected: {len(pos)} positives, {len(neg)} negatives")
+    logging.info(f"Manifest-based selection: {len(pos)} positives, {len(neg)} negatives")
+
+    # ===== STEP 2: Load and merge custom subsets =====
+    pos_subset_paths = args.get("positive_subsets", [])
+    neg_subset_paths = args.get("negative_subsets", [])
+
+    if pos_subset_paths:
+        logging.info(f"Loading {len(pos_subset_paths)} positive subset(s)")
+        pos_subsets = load_subset_files(pos_subset_paths, audio_root)
+        
+        if not pos_subsets.empty:
+            pos_subsets = pos_subsets[pos_subsets["label"].str.lower() == "positive"]
+            
+            if not pos_subsets.empty:
+                # Ensure 'source_subset' column exists in manifest rows (for consistent schema)
+                if "source_subset" not in pos.columns:
+                    pos["source_subset"] = "manifest"
+                
+                pos = pd.concat([pos, pos_subsets], ignore_index=True)
+                logging.info(f"Added {len(pos_subsets)} files from positive_subsets (total pos: {len(pos)})")
+
+    if neg_subset_paths:
+        logging.info(f"Loading {len(neg_subset_paths)} negative subset(s)")
+        neg_subsets = load_subset_files(neg_subset_paths, audio_root)
+        
+        if not neg_subsets.empty:
+            neg_subsets = neg_subsets[neg_subsets["label"].str.lower() == "negative"]
+            
+            if not neg_subsets.empty:
+                # Ensure 'source_subset' column exists in manifest rows
+                if "source_subset" not in neg.columns:
+                    neg["source_subset"] = "manifest"
+                
+                neg = pd.concat([neg, neg_subsets], ignore_index=True)
+                logging.info(f"Added {len(neg_subsets)} files from negative_subsets (total neg: {len(neg)})")
+
+    logging.info(f"Final selection (manifest + subsets): {len(pos)} positives, {len(neg)} negatives")
     return pos, neg
 
 
@@ -209,7 +316,7 @@ def write_detailed_counts(out_dir: Path,
                           selection: Dict[str, pd.DataFrame]) -> None:
     """
     Write detailed breakdown of counts for positives/negatives
-    grouped by quality, call_type, site, recorder_id.
+    grouped by quality, call_type, site, recorder_id, and source_subset.
     Produces a CSV suitable for comparing experiments.
     """
     detailed = []
@@ -217,7 +324,8 @@ def write_detailed_counts(out_dir: Path,
     def summarize(df: pd.DataFrame, label: str, stage: str):
         if df.empty:
             return
-        for col in ["quality", "call_type", "site", "recorder_id", "split"]:
+        # Include source_subset for tracking curated data composition
+        for col in ["quality", "call_type", "site", "recorder_id", "split", "source_subset"]:
             if col not in df.columns:
                 continue
             counts = df.groupby(col).size().reset_index(name="count")
@@ -316,7 +424,7 @@ def main():
 
 
     df = load_manifest(manifest, audio_root)
-    pos, neg = filter_rows(df, cfg_pkg)
+    pos, neg = filter_rows(df, cfg_pkg, audio_root)
     logging.info(f"Filtered: positives={len(pos)}, negatives={len(neg)}")
 
     selection = build_package(pos, neg, cfg_pkg)
@@ -372,7 +480,7 @@ def run_from_config(cfg: dict, verbose: bool = False):
     audio_root = Path(dataset_cfg.get("audio_root", "AudioData"))
     df = load_manifest(Path(merged_cfg["manifest"]), audio_root)
 
-    pos, neg = filter_rows(df, merged_cfg)
+    pos, neg = filter_rows(df, merged_cfg, audio_root)
     selection = build_package(pos, neg, merged_cfg)
 
     exp_dir = get_experiment_dir(cfg)

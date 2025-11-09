@@ -40,6 +40,10 @@ class SweepState:
     upsampling_mode_opts: list[str] = field(default_factory=lambda: ["repeat"])
     upsampling_ratio_axis: list[float] = field(default_factory=lambda: [0.0, 0.25])
     
+    # Data composition axes (for curated subsets)
+    positive_subset_opts: list[list[str]] = field(default_factory=lambda: [[]])
+    negative_subset_opts: list[list[str]] = field(default_factory=lambda: [[]])
+    
     def get_base_params_dict(self) -> dict[str, Any]:
         """Convert base parameters to dictionary for sweep generation."""
         return {
@@ -77,4 +81,8 @@ class SweepState:
             axes["upsampling_mode"] = self.upsampling_mode_opts
         if self.upsampling_ratio_axis:
             axes["upsampling_ratio"] = self.upsampling_ratio_axis
+        if self.positive_subset_opts and self.positive_subset_opts != [[]]:
+            axes["positive_subsets"] = self.positive_subset_opts
+        if self.negative_subset_opts and self.negative_subset_opts != [[]]:
+            axes["negative_subsets"] = self.negative_subset_opts
         return axes

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-import re, time, subprocess, sys
+import re, time, subprocess, sys, os
 from typing import Any
 
 import streamlit as st
@@ -11,6 +11,54 @@ import yaml
 
 from .types import SweepState
 from .utils import parse_num_list, parse_float, validate_quality, calculate_config_count
+
+
+def browse_for_folder(session_key: str, relative_to: Path = None) -> str | None:
+    """
+    Use tkinter to open a folder picker dialog.
+    
+    Args:
+        session_key: Unique key for session state storage
+        relative_to: If provided, convert absolute path to relative path from this location
+        
+    Returns:
+        Selected folder path (relative if relative_to provided, else absolute), or None if cancelled
+    """
+    try:
+        import tkinter as tk
+        from tkinter import filedialog
+        
+        # Hide the root window
+        root = tk.Tk()
+        root.withdraw()
+        root.wm_attributes('-topmost', 1)
+        
+        # Open folder picker
+        folder_path = filedialog.askdirectory(
+            title="Select Subset Folder",
+            initialdir=str(relative_to) if relative_to else os.getcwd()
+        )
+        
+        root.destroy()
+        
+        if folder_path:
+            folder_path = Path(folder_path)
+            # Convert to relative path if requested
+            if relative_to:
+                try:
+                    folder_path = folder_path.relative_to(relative_to)
+                except ValueError:
+                    # If not relative to the base, keep absolute but warn
+                    st.warning(f"Selected folder is outside workspace. Using absolute path.")
+            return str(folder_path)
+        return None
+        
+    except ImportError:
+        st.error("tkinter not available. Please type folder paths manually.")
+        return None
+    except Exception as e:
+        st.error(f"Error opening folder picker: {e}")
+        return None
 
 
 def sweep_form() -> SweepState:
@@ -169,6 +217,128 @@ def sweep_form() -> SweepState:
             placeholder="e.g., 0.0, 0.25"
         )
         state.upsampling_ratio_axis = parse_num_list(up_ratio_axis_str, float)
+        
+        st.markdown("**Data Composition Sweep Options**")
+        st.caption("Add curated positive and negative subset folders to sweep over different data compositions.")
+        
+        # Get workspace root for relative paths
+        workspace_root = Path.cwd()
+        
+        # Positive subsets section
+        col_pos1, col_pos2 = st.columns([4, 1])
+        with col_pos1:
+            st.markdown("**Positive Subsets**")
+        with col_pos2:
+            if st.button("📁 Browse", key="browse_pos_subset", help="Select folder from file explorer"):
+                selected = browse_for_folder("pos_subset_browse", workspace_root)
+                if selected:
+                    # Add to session state list
+                    if "pos_subset_list" not in st.session_state:
+                        st.session_state.pos_subset_list = []
+                    st.session_state.pos_subset_list.append(selected)
+        
+        # Initialize session state for subset lists
+        if "pos_subset_list" not in st.session_state:
+            st.session_state.pos_subset_list = []
+        if "neg_subset_list" not in st.session_state:
+            st.session_state.neg_subset_list = []
+        
+        # Display current positive subset list with remove buttons
+        if st.session_state.pos_subset_list:
+            st.caption("Selected positive subset folders (one per line = one sweep combination):")
+            for i, path in enumerate(st.session_state.pos_subset_list):
+                col_item, col_del = st.columns([5, 1])
+                with col_item:
+                    st.text(path)
+                with col_del:
+                    if st.button("❌", key=f"del_pos_{i}", help="Remove this folder"):
+                        st.session_state.pos_subset_list.pop(i)
+                        st.rerun()
+        
+        positive_subsets_str = st.text_area(
+            "Or type paths manually (one combination per line, comma-separated for multiple folders)",
+            value="\n".join(st.session_state.pos_subset_list) if st.session_state.pos_subset_list else "",
+            key="sweep_pos_subsets",
+            help="Example:\ncurated/bestLowQuality/small\ncurated/bestLowQuality/medium,curated/bestLowQuality/large\n\nEach line = one combination to test. Leave empty if not sweeping.",
+            placeholder="curated/bestLowQuality/small\ncurated/bestLowQuality/medium",
+            height=80
+        )
+        
+        # Negative subsets section
+        col_neg1, col_neg2 = st.columns([4, 1])
+        with col_neg1:
+            st.markdown("**Negative Subsets**")
+        with col_neg2:
+            if st.button("📁 Browse", key="browse_neg_subset", help="Select folder from file explorer"):
+                selected = browse_for_folder("neg_subset_browse", workspace_root)
+                if selected:
+                    # Add to session state list
+                    if "neg_subset_list" not in st.session_state:
+                        st.session_state.neg_subset_list = []
+                    st.session_state.neg_subset_list.append(selected)
+        
+        # Display current negative subset list with remove buttons
+        if st.session_state.neg_subset_list:
+            st.caption("Selected negative subset folders (one per line = one sweep combination):")
+            for i, path in enumerate(st.session_state.neg_subset_list):
+                col_item, col_del = st.columns([5, 1])
+                with col_item:
+                    st.text(path)
+                with col_del:
+                    if st.button("❌", key=f"del_neg_{i}", help="Remove this folder"):
+                        st.session_state.neg_subset_list.pop(i)
+                        st.rerun()
+        
+        negative_subsets_str = st.text_area(
+            "Or type paths manually (one combination per line, comma-separated for multiple folders)",
+            value="\n".join(st.session_state.neg_subset_list) if st.session_state.neg_subset_list else "",
+            key="sweep_neg_subsets",
+            help="Example:\ncurated/hardNeg/hardneg_conf_min_50\ncurated/hardNeg/hardneg_conf_min_85,curated/hardNeg/hardneg_conf_min_99\n\nEach line = one combination to test. Leave empty if not sweeping.",
+            placeholder="curated/hardNeg/hardneg_conf_min_85\ncurated/hardNeg/hardneg_conf_min_99",
+            height=80
+        )
+        
+        # Validate selected folders exist
+        all_subset_paths = []
+        for line in (positive_subsets_str + "\n" + negative_subsets_str).strip().split("\n"):
+            line = line.strip()
+            if line:
+                paths = [p.strip() for p in line.split(",") if p.strip()]
+                all_subset_paths.extend(paths)
+        
+        if all_subset_paths:
+            invalid_paths = []
+            for path_str in all_subset_paths:
+                full_path = workspace_root / path_str
+                if not full_path.exists():
+                    invalid_paths.append(path_str)
+            
+            if invalid_paths:
+                st.warning(f"⚠️ The following paths do not exist:\n" + "\n".join(f"- {p}" for p in invalid_paths))
+            else:
+                st.success(f"✓ All {len(all_subset_paths)} subset folder(s) validated")
+        
+        # Parse positive subsets
+        positive_subset_combos = []
+        if positive_subsets_str.strip():
+            for line in positive_subsets_str.strip().split("\n"):
+                line = line.strip()
+                if line:
+                    paths = [p.strip() for p in line.split(",") if p.strip()]
+                    if paths:
+                        positive_subset_combos.append(paths)
+        state.positive_subset_opts = positive_subset_combos if positive_subset_combos else [[]]
+        
+        # Parse negative subsets
+        negative_subset_combos = []
+        if negative_subsets_str.strip():
+            for line in negative_subsets_str.strip().split("\n"):
+                line = line.strip()
+                if line:
+                    paths = [p.strip() for p in line.split(",") if p.strip()]
+                    if paths:
+                        negative_subset_combos.append(paths)
+        state.negative_subset_opts = negative_subset_combos if negative_subset_combos else [[]]
     
     # Validate quality values
     is_valid, invalid_qualities = validate_quality(state.quality_combos)

@@ -108,23 +108,32 @@ def generate_sweep(stage:int, out_dir:str, axes:dict, base_params:dict, prefix:s
 
         # Overlay axis overrides that belong to training_args
         # Exclude non-TA keys handled separately
-        non_ta = {"seed", "quality", "balance", "batch_size"}
+        non_ta = {"seed", "quality", "balance", "batch_size", "positive_subsets", "negative_subsets"}
         for k, v in combo.items():
             if k in non_ta:
                 continue
             # Map directly into training_args (includes upsampling_mode/ratio, learning_rate, dropout, hidden_units, etc.)
             resolved_ta[k] = v
 
+        # Build training_package section with quality, balance, and subset axes
+        training_package = {
+            "include_negatives": True,
+            # Use axis values if provided, else fall back to base defaults
+            "balance": combo.get("balance", base_cfg.get("training_package", {}).get("balance", True)),
+            "quality": combo.get("quality", base_cfg.get("training_package", {}).get("quality", ["high"])),
+        }
+        
+        # Add subset axes if present in combo (for data composition sweeps)
+        if "positive_subsets" in combo:
+            training_package["positive_subsets"] = combo["positive_subsets"]
+        if "negative_subsets" in combo:
+            training_package["negative_subsets"] = combo["negative_subsets"]
+
         cfg = {
             "experiment": {"name": exp_name, "seed": combo.get("seed", 123)},
             "training": {"batch_size": bs, "epochs": base_cfg.get("training", {}).get("epochs", 50)},
             "inference": {"batch_size": bs},
-            "training_package": {
-                "include_negatives": True,
-                # Use axis values if provided, else fall back to base defaults
-                "balance": combo.get("balance", base_cfg.get("training_package", {}).get("balance", True)),
-                "quality": combo.get("quality", base_cfg.get("training_package", {}).get("quality", ["high"])),
-            },
+            "training_package": training_package,
             "training_args": resolved_ta,
         }
         path = root / f"{exp_name}.yaml"

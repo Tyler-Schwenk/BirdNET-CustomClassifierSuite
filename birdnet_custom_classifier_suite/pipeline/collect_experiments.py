@@ -58,6 +58,7 @@ def collect_experiments(exp_root: str, out_csv: str = "results/all_experiments.c
     minimal_cols = [
         "experiment.name","experiment.seed","training.epochs","training.batch_size","training.threads","training.val_split","training.autotune",
         "dataset.manifest","dataset.filters.include_negatives","dataset.filters.balance","dataset.filters.max_per_class","dataset.filters.quality",
+        "dataset.filters.positive_subsets","dataset.filters.negative_subsets",
         "dataset.filters.call_type","dataset.filters.source_root","dataset.filters.splits","dataset.filters.manifest","dataset.filters.seed",
         "metrics.iid.best_f1.threshold","metrics.iid.best_f1.precision","metrics.iid.best_f1.recall","metrics.iid.best_f1.f1","metrics.iid.best_f1.accuracy",
         "metrics.iid.auroc","metrics.iid.auprc","metrics.ood.best_f1.threshold","metrics.ood.best_f1.precision","metrics.ood.best_f1.recall",
