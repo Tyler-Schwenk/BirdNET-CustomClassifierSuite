@@ -171,15 +171,22 @@ def sweep_form() -> SweepState:
         )
         state.upsampling_ratio_axis = parse_num_list(up_ratio_axis_str, float)
         
-        st.markdown("**Data Composition Sweep Options**")
-        st.caption("Add curated positive and negative subset folders to sweep over different data compositions.")
+        # ============ DATA COMPOSITION SWEEP OPTIONS ============
+        st.markdown("---")
+        st.markdown("### 🗂️ Data Composition Sweep Options")
+        st.caption("Test different curated positive/negative subset combinations. Sweep creates ALL pairwise combinations (full factorial).")
         
         # Get workspace root for relative paths
         workspace_root = Path.cwd()
         
         # Positive subsets section
-        st.markdown("**Positive Subsets**")
-        st.caption("Each line = one sweep combination. Use commas to group multiple folders in one combination.")
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            st.markdown("**Positive Subsets**")
+        with col2:
+            include_baseline_pos = st.checkbox("Include baseline (no positive subsets)", key="include_baseline_pos", value=False, help="Adds an empty combination to test without any positive subsets")
+        
+        st.caption("Each line = one sweep combination. Leave a blank line or type 'none' to test baseline without any positive subsets.")
         
         # Browse button above text area
         if st.button("📁 Add Folder from Explorer", key="browse_pos_subset", help="Select folder from file explorer and add to list"):
@@ -195,16 +202,21 @@ def sweep_form() -> SweepState:
                 st.rerun()
         
         positive_subsets_str = st.text_area(
-            "Type or paste folder paths (one combination per line, comma-separated for multiple folders)",
+            "Folder paths (one per line, or comma-separated for grouping)",
             key="sweep_pos_subsets",
-            help="Example:\ncurated/bestLowQuality/small\ncurated/bestLowQuality/medium,curated/bestLowQuality/large\n\nEach line = one combination to test. Leave empty if not sweeping.",
-            placeholder="curated/bestLowQuality/small\ncurated/bestLowQuality/medium",
+            help="Example:\nnone\ncurated/bestLowQuality/small\ncurated/bestLowQuality/medium\n\nType 'none' or leave a blank line for baseline (no positive subsets). Use commas to group: folder1,folder2",
+            placeholder="none\ncurated/bestLowQuality/small\ncurated/bestLowQuality/medium",
             height=100
         )
         
         # Negative subsets section
-        st.markdown("**Negative Subsets**")
-        st.caption("Each line = one sweep combination. Use commas to group multiple folders in one combination.")
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            st.markdown("**Negative Subsets**")
+        with col2:
+            include_baseline_neg = st.checkbox("Include baseline (no negative subsets)", key="include_baseline_neg", value=False, help="Adds an empty combination to test without any negative subsets")
+        
+        st.caption("Each line = one sweep combination. Leave a blank line or type 'none' to test baseline without any negative subsets.")
         
         # Browse button above text area
         if st.button("📁 Add Folder from Explorer", key="browse_neg_subset", help="Select folder from file explorer and add to list"):
@@ -227,12 +239,12 @@ def sweep_form() -> SweepState:
             height=100
         )
         
-        # Validate selected folders exist
+        # Validate selected folders exist (excluding 'none' and empty lines)
         all_subset_paths = []
         for line in (positive_subsets_str + "\n" + negative_subsets_str).strip().split("\n"):
             line = line.strip()
-            if line:
-                paths = [p.strip() for p in line.split(",") if p.strip()]
+            if line and line.lower() != 'none':
+                paths = [p.strip() for p in line.split(",") if p.strip() and p.strip().lower() != 'none']
                 all_subset_paths.extend(paths)
         
         if all_subset_paths:
@@ -247,27 +259,64 @@ def sweep_form() -> SweepState:
             else:
                 st.success(f"✓ All {len(all_subset_paths)} subset folder(s) validated")
         
+        # Show baseline info if checkboxes are checked
+        baseline_info = []
+        if include_baseline_pos:
+            baseline_info.append("baseline positive (none)")
+        if include_baseline_neg:
+            baseline_info.append("baseline negative (none)")
+        if baseline_info:
+            st.info(f"✓ Including {' + '.join(baseline_info)}")
+        
         # Parse positive subsets
         positive_subset_combos = []
+        
+        # Add baseline if checkbox is checked
+        if include_baseline_pos:
+            positive_subset_combos.append([])
+        
         if positive_subsets_str.strip():
             for line in positive_subsets_str.strip().split("\n"):
                 line = line.strip()
-                if line:
-                    paths = [p.strip() for p in line.split(",") if p.strip()]
+                # Handle 'none' keyword or empty line as baseline
+                if line.lower() in ('none', ''):
+                    if [] not in positive_subset_combos:  # Avoid duplicates
+                        positive_subset_combos.append([])
+                elif line:
+                    paths = [p.strip() for p in line.split(",") if p.strip() and p.strip().lower() != 'none']
                     if paths:
                         positive_subset_combos.append(paths)
-        state.positive_subset_opts = positive_subset_combos if positive_subset_combos else [[]]
+        
+        # Only include positive_subsets axis if we have combinations
+        if positive_subset_combos:
+            state.positive_subset_opts = positive_subset_combos
+        else:
+            state.positive_subset_opts = [[]]  # Default to empty
         
         # Parse negative subsets
         negative_subset_combos = []
+        
+        # Add baseline if checkbox is checked
+        if include_baseline_neg:
+            negative_subset_combos.append([])
+        
         if negative_subsets_str.strip():
             for line in negative_subsets_str.strip().split("\n"):
                 line = line.strip()
-                if line:
-                    paths = [p.strip() for p in line.split(",") if p.strip()]
+                # Handle 'none' keyword or empty line as baseline
+                if line.lower() in ('none', ''):
+                    if [] not in negative_subset_combos:  # Avoid duplicates
+                        negative_subset_combos.append([])
+                elif line:
+                    paths = [p.strip() for p in line.split(",") if p.strip() and p.strip().lower() != 'none']
                     if paths:
                         negative_subset_combos.append(paths)
-        state.negative_subset_opts = negative_subset_combos if negative_subset_combos else [[]]
+        
+        # Only include negative_subsets axis if we have combinations
+        if negative_subset_combos:
+            state.negative_subset_opts = negative_subset_combos
+        else:
+            state.negative_subset_opts = [[]]  # Default to empty
     
     # Validate quality values
     is_valid, invalid_qualities = validate_quality(state.quality_combos)
