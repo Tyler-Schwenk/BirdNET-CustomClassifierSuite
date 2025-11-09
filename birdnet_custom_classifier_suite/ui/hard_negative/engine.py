@@ -97,10 +97,22 @@ def run_analyzer_cli_stream(input_dir: Path, out_dir: Path, model_path: Optional
     return proc, out_dir, cmd
 
 
-def collect_per_file_max(out_dir: Path) -> pd.DataFrame:
-    """Scan the output directory for CSV detection files and compute per-file max confidence.
+def collect_per_file_max(out_dir: Path, target_label: str = "RADR") -> pd.DataFrame:
+    """Scan the output directory for CSV detection files and compute per-file max confidence for target species.
+    
+    IMPORTANT: This looks for predictions of the TARGET SPECIES (default: "RADR") and returns
+    the maximum confidence for that species per file. This is for hard-negative mining:
+    - High confidence = model wrongly thinks it's RADR (good hard negative!)
+    - Low/zero confidence = model correctly doesn't detect RADR (not useful for training)
+    
+    If a file has no predictions for the target species, max confidence will be 0.0.
 
-    Returns a DataFrame with columns: File (absolute path string), radr_max_confidence (float)
+    Args:
+        out_dir: Directory containing analyzer CSV outputs
+        target_label: Species label to search for (default "RADR")
+
+    Returns:
+        DataFrame with columns: File (absolute path string), radr_max_confidence (float)
     """
     out_dir = Path(out_dir)
     csv_files = list(out_dir.glob('**/*.csv'))
@@ -108,6 +120,8 @@ def collect_per_file_max(out_dir: Path) -> pd.DataFrame:
         raise RuntimeError(f"No CSV outputs found in analyzer output folder: {out_dir}")
 
     rows = []
+    all_files = set()  # Track all files seen
+    
     for csvp in csv_files:
         try:
             df = pd.read_csv(csvp)
@@ -118,6 +132,15 @@ def collect_per_file_max(out_dir: Path) -> pd.DataFrame:
             continue
         conf_col = _find_confidence_column(list(df.columns))
         file_col = next((c for c in df.columns if c.lower() == 'file' or c.lower().endswith('file')), None)
+        
+        # Check for species/label column to filter for target species
+        species_col = None
+        for c in df.columns:
+            lc = c.lower()
+            if 'common' in lc or 'species' in lc or 'scientific' in lc or 'label' in lc:
+                species_col = c
+                break
+        
         if conf_col is None:
             # try to infer a numeric column
             numeric_cols = [c for c in df.columns if pd.api.types.is_numeric_dtype(df[c])]
@@ -128,16 +151,34 @@ def collect_per_file_max(out_dir: Path) -> pd.DataFrame:
         if conf_col is None:
             # no confidence-like column; skip
             continue
+            
         for _, r in df.iterrows():
+            fname = str(r[file_col])
+            all_files.add(fname)
+            
+            # ONLY include predictions for the TARGET SPECIES (e.g., RADR)
+            if species_col:
+                species_value = str(r[species_col]).strip().upper()
+                target_upper = target_label.strip().upper()
+                
+                # Check if this row is a prediction for our target species
+                if species_value != target_upper:
+                    continue
+            
             try:
                 v = float(r[conf_col])
             except Exception:
                 continue
-            fname = str(r[file_col])
             rows.append((fname, v))
 
+    # For files that had no target species predictions, add them with 0.0 confidence
+    files_with_predictions = set(fname for fname, _ in rows)
+    for fname in all_files:
+        if fname not in files_with_predictions:
+            rows.append((fname, 0.0))
+
     if not rows:
-        raise RuntimeError("No confidence values found in analyzer outputs.")
+        raise RuntimeError(f"No predictions found for target species '{target_label}' in analyzer outputs.")
 
     per_file = {}
     for fname, v in rows:
@@ -146,7 +187,9 @@ def collect_per_file_max(out_dir: Path) -> pd.DataFrame:
 
     out_rows = []
     for fname, vals in per_file.items():
-        out_rows.append({'File': fname, 'radr_max_confidence': float(max(vals))})
+        # Maximum confidence for target species across all detections in this file
+        max_conf = float(max(vals)) if vals else 0.0
+        out_rows.append({'File': fname, 'radr_max_confidence': max_conf})
 
     df_out = pd.DataFrame(out_rows)
     return df_out

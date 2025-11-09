@@ -34,6 +34,7 @@ LINK_METHOD_LABELS = {
 CONFIDENCE_COLUMN_NAME = "radr_max_confidence"
 FILE_COLUMN_NAME = "File"
 REQUIRED_COLUMNS = [FILE_COLUMN_NAME, CONFIDENCE_COLUMN_NAME]
+DEFAULT_TARGET_SPECIES = "RADR"  # Species label to search for in predictions
 
 # Selection modes
 SELECTION_MODES = ["top_k", "top_pct", "by_index", "threshold", "manual"]

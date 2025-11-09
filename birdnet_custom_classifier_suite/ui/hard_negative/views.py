@@ -234,7 +234,8 @@ def _run_inference_workflow(
             )
         
         # Aggregate outputs
-        df_out = engine.collect_per_file_max(out_root)
+        target_species = st.session_state.get('hn_target_species', constants.DEFAULT_TARGET_SPECIES)
+        df_out = engine.collect_per_file_max(out_root, target_label=target_species)
         st_.success(f"✅ Inference complete — {len(df_out)} rows of predictions found.")
         st_.info(f"📂 Analyzer outputs saved to: `{out_root}`")
         
@@ -463,6 +464,14 @@ def panel(container=None):
     # === Input & Model Selection ===
     with st_.expander("📥 Input & model", expanded=True):
         input_dir = _render_folder_picker(st_)
+        
+        # Target species configuration
+        target_species = st_.text_input(
+            "🎯 Target species label (e.g., RADR)",
+            value=constants.DEFAULT_TARGET_SPECIES,
+            help="Species label to search for in predictions. For hard-negative mining, this finds files where the model wrongly predicts this species."
+        )
+        st.session_state['hn_target_species'] = target_species
         
         st_.caption(
             "**Two workflows:** 1) Run inference on the chosen folder with a model "

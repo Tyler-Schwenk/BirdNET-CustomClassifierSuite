@@ -38,6 +38,7 @@ models/*.csv
 evaluation/*.png
 evaluation/*.pdf
 experiments/*
+curated/*
 # Keep top-level summaries
 results/*
 !results/all_experiments.csv
