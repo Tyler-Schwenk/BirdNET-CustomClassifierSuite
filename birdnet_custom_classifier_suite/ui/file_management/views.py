@@ -8,6 +8,7 @@ import pandas as pd
 import streamlit as st
 
 from birdnet_custom_classifier_suite.ui.file_management import engine
+from birdnet_custom_classifier_suite.ui.common import folder_picker
 import tempfile
 import os
 import shutil
@@ -34,9 +35,24 @@ def panel(container=None):
     output_mode = st_.radio("Output mode", options=["save_to_path", "download_zip"], index=0, format_func=lambda x: {"save_to_path":"Save to server path","download_zip":"Download ZIP"}[x])
     out_folder = None
     if output_mode == 'save_to_path':
-        out_folder = st_.text_input("Output root folder (segments saved under <out>/<orig_stem>/)", value=str(default_out), key='fm_out_folder')
+        out_folder = folder_picker(
+            label="Output root folder (segments saved under <out>/<orig_stem>/)",
+            key="fm_out_folder",
+            initial_dir=default_out.parent if default_out.parent.exists() else Path.cwd(),
+            relative_to=None,  # Keep absolute paths for output
+            help_text="Select folder where split audio segments will be saved",
+            text_input=True
+        ) or str(default_out)
+    
     # Optional local folder input (used when not uploading files)
-    in_folder = st_.text_input("Input folder (local path; used if no files are uploaded)", value=str(default_in), key='fm_in_folder')
+    in_folder = folder_picker(
+        label="Input folder (local path; used if no files are uploaded)",
+        key="fm_in_folder",
+        initial_dir=default_in if default_in.exists() else Path.cwd(),
+        relative_to=None,  # Keep absolute paths
+        help_text="Select folder containing audio files to split",
+        text_input=True
+    ) or str(default_in)
 
 
     seg_len = st_.number_input("Segment length (seconds)", min_value=0.1, value=3.0, step=0.1)

@@ -2,19 +2,15 @@
 
 from __future__ import annotations
 
+from birdnet_custom_classifier_suite.ui.common import parse_number_list
+
 
 def parse_num_list(s: str, cast) -> list:
-    """Parse comma-separated numeric string into list."""
-    vals = []
-    for tok in s.split(','):
-        tok = tok.strip()
-        if not tok:
-            continue
-        try:
-            vals.append(cast(tok))
-        except Exception:
-            pass
-    return vals
+    """
+    Parse comma-separated numeric string into list.
+    Delegates to common utility.
+    """
+    return parse_number_list(s, cast)
 
 
 def parse_float(s: str, default: float) -> float:

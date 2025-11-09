@@ -20,6 +20,7 @@ import pandas as pd
 import streamlit as st
 
 from birdnet_custom_classifier_suite.ui.hard_negative import constants, utils
+from birdnet_custom_classifier_suite.ui.common import folder_picker
 from birdnet_custom_classifier_suite.ui.hard_negative.models import (
     ExportConfig,
     ExportMethod,
@@ -38,34 +39,15 @@ logger = logging.getLogger(__name__)
 
 def _render_folder_picker(st_: st) -> str:
     """Render folder selection UI with native dialog and text input fallback."""
-    if 'hn_input_dir' not in st.session_state:
-        st.session_state['hn_input_dir'] = str(constants.DEFAULT_INPUT_DIR)
-    
-    try:
-
-        if st_.button("Choose folder (Explorer)", key='hn_choose_folder'):
-            try:
-                import tkinter as tk
-                from tkinter import filedialog
-                
-                root = tk.Tk()
-                root.withdraw()
-                try:
-                    root.attributes('-topmost', True)
-                except Exception:
-                    pass
-                folder = filedialog.askdirectory()
-                root.destroy()
-                
-                if folder:
-                    st.session_state['hn_input_dir'] = str(folder)
-                    st.rerun()
-            except Exception as e:
-                st_.warning(f"Native folder dialog failed: {e}. Please paste the path into the box instead.")
-    except Exception:
-        pass
-    
-    return st_.text_input("Input folder containing audio files", key='hn_input_dir')
+    folder = folder_picker(
+        label="Input folder containing audio files",
+        key="hn_input_dir",
+        help_text="Select folder with audio files to analyze",
+        initial_dir=constants.DEFAULT_INPUT_DIR if constants.DEFAULT_INPUT_DIR.exists() else Path.cwd(),
+        button_label="Choose folder (Explorer)",
+        text_input=True,
+    )
+    return folder or str(constants.DEFAULT_INPUT_DIR)
 
 
 def _get_experiment_list(st_: st) -> List[str]:

@@ -11,6 +11,7 @@ import pandas as pd
 import streamlit as st
 
 from birdnet_custom_classifier_suite.ui.hard_negative import constants
+from birdnet_custom_classifier_suite.ui.common import format_file_size, validate_folder_not_empty
 
 
 def get_output_path_for_model_source(
@@ -157,27 +158,16 @@ def write_selection_report(dest: Path, report: dict, st_: st) -> None:
 def validate_input_directory(input_dir: Path, st_: st) -> bool:
     """
     Validate that input directory exists and contains files.
+    Uses common validation utility.
     
     Args:
         input_dir: Path to validate
-        st_: Streamlit module or container
+        st_: Streamlit module or container (unused, kept for compatibility)
     
     Returns:
         True if valid, False otherwise
     """
-    if not input_dir.exists():
-        st_.warning(f"Input folder not found: `{input_dir}`")
-        return False
-    
-    try:
-        if not any(input_dir.iterdir()):
-            st_.warning(f"Input folder is empty: `{input_dir}`")
-            return False
-    except Exception as e:
-        st_.warning(f"Cannot read input folder: {e}")
-        return False
-    
-    return True
+    return validate_folder_not_empty(input_dir, show_message=True)
 
 
 def parse_csv_columns(df: pd.DataFrame) -> Tuple[Optional[str], Optional[str]]:
@@ -209,21 +199,15 @@ def parse_csv_columns(df: pd.DataFrame) -> Tuple[Optional[str], Optional[str]]:
     return conf_col, file_col
 
 
+# Note: format_file_size is now imported from ui.common.widgets instead of defined here
+# Keeping this stub for backward compatibility
 def format_file_size(size_bytes: int) -> str:
     """
     Format file size in human-readable format.
-    
-    Args:
-        size_bytes: Size in bytes
-    
-    Returns:
-        Formatted string (e.g., "1.5 MB")
+    Delegates to common utility.
     """
-    for unit in ['B', 'KB', 'MB', 'GB']:
-        if size_bytes < 1024.0:
-            return f"{size_bytes:.1f} {unit}"
-        size_bytes /= 1024.0
-    return f"{size_bytes:.1f} TB"
+    from birdnet_custom_classifier_suite.ui.common import format_file_size as common_format
+    return common_format(size_bytes)
 
 
 def get_experiment_model_files(exp_dir: Path) -> List[Path]:

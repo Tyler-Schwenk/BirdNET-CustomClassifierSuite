@@ -11,54 +11,7 @@ import yaml
 
 from .types import SweepState
 from .utils import parse_num_list, parse_float, validate_quality, calculate_config_count
-
-
-def browse_for_folder(session_key: str, relative_to: Path = None) -> str | None:
-    """
-    Use tkinter to open a folder picker dialog.
-    
-    Args:
-        session_key: Unique key for session state storage
-        relative_to: If provided, convert absolute path to relative path from this location
-        
-    Returns:
-        Selected folder path (relative if relative_to provided, else absolute), or None if cancelled
-    """
-    try:
-        import tkinter as tk
-        from tkinter import filedialog
-        
-        # Hide the root window
-        root = tk.Tk()
-        root.withdraw()
-        root.wm_attributes('-topmost', 1)
-        
-        # Open folder picker
-        folder_path = filedialog.askdirectory(
-            title="Select Subset Folder",
-            initialdir=str(relative_to) if relative_to else os.getcwd()
-        )
-        
-        root.destroy()
-        
-        if folder_path:
-            folder_path = Path(folder_path)
-            # Convert to relative path if requested
-            if relative_to:
-                try:
-                    folder_path = folder_path.relative_to(relative_to)
-                except ValueError:
-                    # If not relative to the base, keep absolute but warn
-                    st.warning(f"Selected folder is outside workspace. Using absolute path.")
-            return str(folder_path)
-        return None
-        
-    except ImportError:
-        st.error("tkinter not available. Please type folder paths manually.")
-        return None
-    except Exception as e:
-        st.error(f"Error opening folder picker: {e}")
-        return None
+from birdnet_custom_classifier_suite.ui.common import browse_folder, validate_folder_exists
 
 
 def sweep_form() -> SweepState:
@@ -225,77 +178,53 @@ def sweep_form() -> SweepState:
         workspace_root = Path.cwd()
         
         # Positive subsets section
-        col_pos1, col_pos2 = st.columns([4, 1])
-        with col_pos1:
-            st.markdown("**Positive Subsets**")
-        with col_pos2:
-            if st.button("📁 Browse", key="browse_pos_subset", help="Select folder from file explorer"):
-                selected = browse_for_folder("pos_subset_browse", workspace_root)
-                if selected:
-                    # Add to session state list
-                    if "pos_subset_list" not in st.session_state:
-                        st.session_state.pos_subset_list = []
-                    st.session_state.pos_subset_list.append(selected)
+        st.markdown("**Positive Subsets**")
+        st.caption("Each line = one sweep combination. Use commas to group multiple folders in one combination.")
         
-        # Initialize session state for subset lists
-        if "pos_subset_list" not in st.session_state:
-            st.session_state.pos_subset_list = []
-        if "neg_subset_list" not in st.session_state:
-            st.session_state.neg_subset_list = []
-        
-        # Display current positive subset list with remove buttons
-        if st.session_state.pos_subset_list:
-            st.caption("Selected positive subset folders (one per line = one sweep combination):")
-            for i, path in enumerate(st.session_state.pos_subset_list):
-                col_item, col_del = st.columns([5, 1])
-                with col_item:
-                    st.text(path)
-                with col_del:
-                    if st.button("❌", key=f"del_pos_{i}", help="Remove this folder"):
-                        st.session_state.pos_subset_list.pop(i)
-                        st.rerun()
+        # Browse button above text area
+        if st.button("📁 Add Folder from Explorer", key="browse_pos_subset", help="Select folder from file explorer and add to list"):
+            # Use common browse_folder helper
+            selected = browse_folder(initial_dir=workspace_root, relative_to=workspace_root)
+            if selected:
+                # Get current value from the widget's previous state
+                current = st.session_state.get("sweep_pos_subsets", "").strip()
+                if current:
+                    st.session_state.sweep_pos_subsets = current + "\n" + str(selected)
+                else:
+                    st.session_state.sweep_pos_subsets = str(selected)
+                st.rerun()
         
         positive_subsets_str = st.text_area(
-            "Or type paths manually (one combination per line, comma-separated for multiple folders)",
-            value="\n".join(st.session_state.pos_subset_list) if st.session_state.pos_subset_list else "",
+            "Type or paste folder paths (one combination per line, comma-separated for multiple folders)",
             key="sweep_pos_subsets",
             help="Example:\ncurated/bestLowQuality/small\ncurated/bestLowQuality/medium,curated/bestLowQuality/large\n\nEach line = one combination to test. Leave empty if not sweeping.",
             placeholder="curated/bestLowQuality/small\ncurated/bestLowQuality/medium",
-            height=80
+            height=100
         )
         
         # Negative subsets section
-        col_neg1, col_neg2 = st.columns([4, 1])
-        with col_neg1:
-            st.markdown("**Negative Subsets**")
-        with col_neg2:
-            if st.button("📁 Browse", key="browse_neg_subset", help="Select folder from file explorer"):
-                selected = browse_for_folder("neg_subset_browse", workspace_root)
-                if selected:
-                    # Add to session state list
-                    if "neg_subset_list" not in st.session_state:
-                        st.session_state.neg_subset_list = []
-                    st.session_state.neg_subset_list.append(selected)
+        st.markdown("**Negative Subsets**")
+        st.caption("Each line = one sweep combination. Use commas to group multiple folders in one combination.")
         
-        # Display current negative subset list with remove buttons
-        if st.session_state.neg_subset_list:
-            st.caption("Selected negative subset folders (one per line = one sweep combination):")
-            for i, path in enumerate(st.session_state.neg_subset_list):
-                col_item, col_del = st.columns([5, 1])
-                with col_item:
-                    st.text(path)
-                with col_del:
-                    if st.button("❌", key=f"del_neg_{i}", help="Remove this folder"):
-                        st.session_state.neg_subset_list.pop(i)
-                        st.rerun()
+        # Browse button above text area
+        if st.button("📁 Add Folder from Explorer", key="browse_neg_subset", help="Select folder from file explorer and add to list"):
+            # Use common browse_folder helper
+            selected = browse_folder(initial_dir=workspace_root, relative_to=workspace_root)
+            if selected:
+                # Get current value from the widget's previous state
+                current = st.session_state.get("sweep_neg_subsets", "").strip()
+                if current:
+                    st.session_state.sweep_neg_subsets = current + "\n" + str(selected)
+                else:
+                    st.session_state.sweep_neg_subsets = str(selected)
+                st.rerun()
         
         negative_subsets_str = st.text_area(
-            "Or type paths manually (one combination per line, comma-separated for multiple folders)",
-            value="\n".join(st.session_state.neg_subset_list) if st.session_state.neg_subset_list else "",
+            "Type or paste folder paths (one combination per line, comma-separated for multiple folders)",
             key="sweep_neg_subsets",
             help="Example:\ncurated/hardNeg/hardneg_conf_min_50\ncurated/hardNeg/hardneg_conf_min_85,curated/hardNeg/hardneg_conf_min_99\n\nEach line = one combination to test. Leave empty if not sweeping.",
             placeholder="curated/hardNeg/hardneg_conf_min_85\ncurated/hardNeg/hardneg_conf_min_99",
-            height=80
+            height=100
         )
         
         # Validate selected folders exist
