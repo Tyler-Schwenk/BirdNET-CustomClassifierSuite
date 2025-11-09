@@ -1,213 +1,423 @@
-# BirdNET-CustomClassifierSuite
+# BirdNET Custom Classifier Suite# BirdNET-CustomClassifierSuite
 
-A modular, reproducible pipeline for training and evaluating **custom BirdNET classifiers**  
+
+
+A modular pipeline for training and evaluating custom BirdNET classifiers with systematic hyperparameter sweeps and data composition experiments.A modular, reproducible pipeline for training and evaluating **custom BirdNET classifiers**  
+
 (e.g., for species detection like California Red-legged Frog, Bullfrog, etc.).
 
+## Features
+
 This suite automates every stage of the workflow — from data packaging and model training  
-to inference, evaluation, and multi-config sweep generation.
 
----
+- **🎯 Streamlit UI** - Interactive sweep design, experiment tracking, and results analysisto inference, evaluation, and multi-config sweep generation.
 
-## Repository Overview
+- **🔬 Parameter Sweeps** - Test hyperparameters, data compositions, and augmentation strategies
 
-```
+- **📊 Automatic Evaluation** - IID/OOD metrics, leaderboards, and performance tracking---
+
+- **🗂️ Data Composition Testing** - Sweep over curated positive/negative subset combinations
+
+- **⚡ CLI Tools** - `birdnet-ui` and `birdnet-analyze` for quick workflows## Repository Overview
+
+
+
+## Quick Start```
+
 BirdNET-CustomClassifierSuite/
-│
-├── birdnet_custom_classifier_suite/   ← Python package
-│   ├── cli/                           ← Console commands (birdnet-analyze, birdnet-ui)
-│   ├── pipeline/                      ← Core training + inference pipeline
-│   ├── sweeps/                        ← Sweep generation + batch execution
-│   ├── eval_toolkit/                  ← Aggregation and review utilities
+
+**Installation:**│
+
+```powershell├── birdnet_custom_classifier_suite/   ← Python package
+
+python -m venv .venv│   ├── cli/                           ← Console commands (birdnet-analyze, birdnet-ui)
+
+.\.venv\Scripts\Activate.ps1│   ├── pipeline/                      ← Core training + inference pipeline
+
+pip install -e .│   ├── sweeps/                        ← Sweep generation + batch execution
+
+```│   ├── eval_toolkit/                  ← Aggregation and review utilities
+
 │   ├── ui/                            ← Streamlit UI components
-│   │   └── sweeps/                    ← Modular Sweeps tab components
-│   └── utils/
-│
-├── config/
+
+**Launch UI:**│   │   └── sweeps/                    ← Modular Sweeps tab components
+
+```powershell│   └── utils/
+
+birdnet-ui│
+
+```├── config/
+
 │   ├── base.yaml                      ← Global defaults (shared across stages)
-│   ├── sweep_specs/                   ← Tracked sweep definitions (YAML)
-│   │   ├── example_sweep.yaml
-│   │   └── test_sweep.yaml
-│   └── sweeps/                        ← Generated sweeps (ignored by Git)
+
+**Analyze Results:**│   ├── sweep_specs/                   ← Tracked sweep definitions (YAML)
+
+```powershell│   │   ├── example_sweep.yaml
+
+birdnet-analyze --stage stage4_ --precision-floor 0.9 --top-n 20│   │   └── test_sweep.yaml
+
+```│   └── sweeps/                        ← Generated sweeps (ignored by Git)
+
 │       ├── test_sweep/
-│       │   ├── stage0_001.yaml
+
+## Project Structure│       │   ├── stage0_001.yaml
+
 │       │   ├── ...
-│       │   └── base.yaml
-│
-├── experiments/                       ← Pipeline outputs (models, evals)
-├── scripts/                           ← Local scripts (dev convenience)
-│   ├── setup_env.ps1
-│   └── streamlit_app.py               ← Streamlit app entry (used by birdnet-ui)
-└── requirements.txt
+
+```│       │   └── base.yaml
+
+├── birdnet_custom_classifier_suite/│
+
+│   ├── cli/            # Console commands (birdnet-ui, birdnet-analyze)├── experiments/                       ← Pipeline outputs (models, evals)
+
+│   ├── pipeline/       # Training + inference pipeline├── scripts/                           ← Local scripts (dev convenience)
+
+│   ├── sweeps/         # Sweep generation + execution│   ├── setup_env.ps1
+
+│   ├── eval_toolkit/   # Results aggregation│   └── streamlit_app.py               ← Streamlit app entry (used by birdnet-ui)
+
+│   └── ui/             # Streamlit interface└── requirements.txt
+
+├── config/```
+
+│   ├── sweep_specs/    # Tracked sweep definitions (YAML)
+
+│   └── sweeps/         # Generated configs (gitignored)---
+
+├── experiments/        # Model outputs + evaluations
+
+└── results/            # Aggregated CSVs + leaderboards## Installation
+
 ```
-
----
-
-## Installation
 
 Recommended (development/editable install):
 
+## Workflow
+
 ```powershell
-python -m venv .venv
+
+### 1. Design a Sweep (via UI or YAML)python -m venv .venv
+
 .\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-pip install -e .
+
+**Option A: Streamlit UI**python -m pip install --upgrade pip
+
+```powershellpip install -e .
+
+birdnet-ui  # Go to Sweeps tab```
+
 ```
 
-Windows convenience script (sets up venv and deps):
+- Set base parameters (epochs, batch_size, learning_rate)Windows convenience script (sets up venv and deps):
 
-```powershell
-# Create and activate venv, install deps, link package
+- Add sweep axes (dropout, hidden_units, quality combinations)
+
+- Add data composition axes (positive/negative curated subsets)```powershell
+
+- Click **Generate Sweep**# Create and activate venv, install deps, link package
+
 powershell -ExecutionPolicy Bypass -File scripts/setup_env.ps1
+
+**Option B: Manual YAML** (`config/sweep_specs/my_sweep.yaml`)```
+
+```yaml
+
+stage: 1This installs all dependencies and this project in editable mode. After install, the following
+
+out_dir: config/sweeps/my_sweepconsole commands are available:
+
+axes:
+
+  seed: [123, 456]- `birdnet-analyze` — Analyze experiments and generate leaderboards
+
+  dropout: [0.0, 0.25]- `birdnet-ui` — Launch the Streamlit app (Evaluate + Sweeps)
+
+  quality: [["high", "medium"], ["high"]]
+
+  positive_subsets:If you prefer not to install console scripts, you can still run via `python -m ...` (see below).
+
+    - ["curated/bestLowQuality/small"]
+
+    - ["curated/bestLowQuality/medium"]---
+
+  negative_subsets:
+
+    - ["curated/hardNeg/hardneg_conf_min_85"]## Quick Start
+
+base_params:
+
+  epochs: 50Analyze experiments and generate leaderboards:
+
+  batch_size: 32
+
+  learning_rate: 0.0005```powershell
+
+```birdnet-analyze --stage stage4_ --precision-floor 0.9 --top-n 20
+
 ```
 
-This installs all dependencies and this project in editable mode. After install, the following
-console commands are available:
+Generate configs:
 
-- `birdnet-analyze` — Analyze experiments and generate leaderboards
-- `birdnet-ui` — Launch the Streamlit app (Evaluate + Sweeps)
+```powershellLaunch the UI:
 
-If you prefer not to install console scripts, you can still run via `python -m ...` (see below).
+python -m birdnet_custom_classifier_suite.sweeps.sweep_generator --spec config/sweep_specs/my_sweep.yaml
 
----
+``````powershell
 
-## Quick Start
-
-Analyze experiments and generate leaderboards:
-
-```powershell
-birdnet-analyze --stage stage4_ --precision-floor 0.9 --top-n 20
-```
-
-Launch the UI:
-
-```powershell
 birdnet-ui
-```
 
-Module alternatives:
+### 2. Run the Sweep```
 
-```powershell
-python -m birdnet_custom_classifier_suite.cli.analyze --stage stage4_
-python -m birdnet_custom_classifier_suite.cli.ui
-```
 
----
 
-## Base configuration (per-sweep)
+**Via UI:** Click **Run Sweep** in the Sweeps tabModule alternatives:
 
-Each sweep generates its own `base.yaml` inside the sweep output folder (for example `config/sweeps/<name>/base.yaml`).  
+
+
+**Via CLI:**```powershell
+
+```powershellpython -m birdnet_custom_classifier_suite.cli.analyze --stage stage4_
+
+python -m birdnet_custom_classifier_suite.sweeps.run_sweep config/sweeps/my_sweep --verbosepython -m birdnet_custom_classifier_suite.cli.ui
+
+``````
+
+
+
+Each experiment:---
+
+1. Builds training package (merges manifest + curated subsets)
+
+2. Trains BirdNET model## Base configuration (per-sweep)
+
+3. Runs inference (IID + OOD splits)
+
+4. Evaluates metrics and logs to CSVEach sweep generates its own `base.yaml` inside the sweep output folder (for example `config/sweeps/<name>/base.yaml`).  
+
 This per-sweep base is derived from the sweep spec’s `base_params` and is the only base used by the pipeline for that sweep. There is no global `config/base.yaml`.
+
+### 3. Analyze Results
 
 Example:
 
+**Via UI:** Go to **Evaluate** tab, load `results/all_experiments.csv`, filter/rank
+
 ```yaml
-training:
-  epochs: 50
-  batch_size: 32
-training_args:
+
+**Via CLI:**training:
+
+```powershell  epochs: 50
+
+birdnet-analyze --stage stage1_ --precision-floor 0.85 --top-n 15  batch_size: 32
+
+```training_args:
+
   fmin: 0
-  fmax: 15000
-  overlap: 0.0
-  hidden_units: 512
+
+Outputs:  fmax: 15000
+
+- `results/all_experiments.csv` - Combined experiment data  overlap: 0.0
+
+- `results/leaderboards/` - Ranked configs by metric  hidden_units: 512
+
   dropout: 0.25
-  learning_rate: 0.0005
+
+## Data Composition Sweeps  learning_rate: 0.0005
+
   label_smoothing: true
-  mixup: true
+
+Test how curated positive/negative subsets affect performance:  mixup: true
+
 analyzer_args:
-  fmin: 0
-  fmax: 15000
-  overlap: 0.0
-  sensitivity: 1.0
+
+**Positive Subsets** (`AudioData/curated/bestLowQuality/`):  fmin: 0
+
+- `small` (51 files) - Top 5% low-quality by confidence  fmax: 15000
+
+- `medium` (154 files) - Top 15%  overlap: 0.0
+
+- `large` (309 files) - Top 30%  sensitivity: 1.0
+
 ```
 
-*Important:*  
-`fmin`, `fmax`, and `overlap` must match between `training_args` and `analyzer_args`
-to ensure consistent spectrogram processing across training and inference.
+**Negative Subsets** (`AudioData/curated/hardNeg/`):
 
----
+- `hardneg_conf_min_50` (1,401 files) - FPs with conf ≥ 0.50*Important:*  
 
-## Sweep Specs
+- `hardneg_conf_min_85` (981 files) - FPs with conf ≥ 0.85`fmin`, `fmax`, and `overlap` must match between `training_args` and `analyzer_args`
 
-Tracked sweep definitions live under [`config/sweep_specs/`](config/sweep_specs/).  
+- `hardneg_conf_min_99` (475 files) - FPs with conf ≥ 0.99to ensure consistent spectrogram processing across training and inference.
+
+
+
+**UI Usage:**---
+
+1. In Sweeps tab, scroll to **Data Composition Sweep Options**
+
+2. Click **📁 Add Folder from Explorer** to browse and select subset folders## Sweep Specs
+
+3. Each line in the text area = one sweep combination
+
+4. Use commas within a line to group multiple folders: `folder1,folder2`Tracked sweep definitions live under [`config/sweep_specs/`](config/sweep_specs/).  
+
 Each spec describes:
-- the **axes** of parameters to vary
+
+See [`docs/DATA_COMPOSITION_SWEEPS.md`](docs/DATA_COMPOSITION_SWEEPS.md) for details.- the **axes** of parameters to vary
+
 - the **base_params** shared across all configs
-- the **stage number** and output directory
 
-Example (`config/sweep_specs/example_sweep.yaml`):
+## Configuration- the **stage number** and output directory
 
-```yaml
-stage: 1
-out_dir: "config/sweeps/example_sweep"
-axes:
-  hidden_units: [0, 128, 512]
-  dropout: [0.0, 0.25]
-  learning_rate: [0.0001, 0.0005, 0.001]
-  batch_size: [16, 32]
-  seed: [123]
-base_params:
-  epochs: 50
-  upsampling_ratio: 0.0
-  mixup: false
-  label_smoothing: false
-  focal_loss: false
-```
 
----
 
-## Generating Sweeps
+Each sweep generates a `base.yaml` in its output folder with shared parameters:Example (`config/sweep_specs/example_sweep.yaml`):
 
-Run the generator with any sweep spec:
 
-```powershell
-python -m birdnet_custom_classifier_suite.sweeps.sweep_generator --spec config/sweep_specs/example_sweep.yaml
-```
 
-This creates a folder under `config/sweeps/<name>/` containing `base.yaml` and the generated experiment YAML configs.
+```yaml```yaml
 
----
+training:stage: 1
+
+  epochs: 50out_dir: "config/sweeps/example_sweep"
+
+  batch_size: 32axes:
+
+training_args:  hidden_units: [0, 128, 512]
+
+  fmin: 0  dropout: [0.0, 0.25]
+
+  fmax: 15000  learning_rate: [0.0001, 0.0005, 0.001]
+
+  overlap: 0.0  batch_size: [16, 32]
+
+  dropout: 0.25  seed: [123]
+
+  learning_rate: 0.0005base_params:
+
+analyzer_args:  epochs: 50
+
+  fmin: 0  upsampling_ratio: 0.0
+
+  fmax: 15000  mixup: false
+
+  overlap: 0.0  label_smoothing: false
+
+  sensitivity: 1.0  focal_loss: false
+
+``````
+
+
+
+⚠️ **Important:** `fmin`, `fmax`, `overlap` must match between `training_args` and `analyzer_args`.---
+
+
+
+## CLI Reference## Generating Sweeps
+
+
+
+### birdnet-uiRun the generator with any sweep spec:
+
+Launch the Streamlit interface:
+
+```powershell```powershell
+
+birdnet-uipython -m birdnet_custom_classifier_suite.sweeps.sweep_generator --spec config/sweep_specs/example_sweep.yaml
+
+``````
+
+
+
+### birdnet-analyzeThis creates a folder under `config/sweeps/<name>/` containing `base.yaml` and the generated experiment YAML configs.
+
+Aggregate experiments and generate leaderboards:
+
+```powershell---
+
+birdnet-analyze [OPTIONS]
 
 ## Running Sweeps
 
-Execute all configs in a sweep folder using the training pipeline:
+Options:
 
-```powershell
-python -m birdnet_custom_classifier_suite.sweeps.run_sweep config/sweeps/example_sweep --base-config config/sweeps/example_sweep/base.yaml --verbose
+  --exp-root PATH          Experiments folder (default: experiments)Execute all configs in a sweep folder using the training pipeline:
+
+  --results PATH           Master CSV path (default: results/all_experiments.csv)
+
+  --stage PREFIX           Filter experiments by prefix (e.g., stage4_)```powershell
+
+  --precision-floor FLOAT  Minimum precision thresholdpython -m birdnet_custom_classifier_suite.sweeps.run_sweep config/sweeps/example_sweep --base-config config/sweeps/example_sweep/base.yaml --verbose
+
+  --metric-prefix TEXT     Metric group (default: metrics.ood.best_f1)```
+
+  --top-n INT              Number of top configs (default: 10)
+
+```Each config will:
+
+1. Build its training package
+
+### Module Alternatives2. Train a BirdNET model
+
+```powershell3. Run inference (IID + OOD)
+
+# If console scripts don't work, use module syntax4. Evaluate metrics and update the master experiment index
+
+python -m birdnet_custom_classifier_suite.cli.ui
+
+python -m birdnet_custom_classifier_suite.cli.analyze --stage stage4_Outputs appear in `experiments/<experiment_name>/`.
+
 ```
 
-Each config will:
-1. Build its training package
-2. Train a BirdNET model
-3. Run inference (IID + OOD)
-4. Evaluate metrics and update the master experiment index
-
-Outputs appear in `experiments/<experiment_name>/`.
-
 ---
+
+## Testing
 
 ## Evaluating and Aggregating Results
 
-Once your sweeps finish, use the evaluation toolkit to summarize results:
+```powershell
+
+python -m pytest -qOnce your sweeps finish, use the evaluation toolkit to summarize results:
+
+```
 
 Use either the UI (Evaluate tab) or CLI:
 
-```powershell
-# CLI — collect experiments and create a master results CSV, then rank and report
-birdnet-analyze --stage stage4_ --precision-floor 0.9 --top-n 20
-```
+Tests live under `tests/` and follow `test_*.py` naming conventions.
 
-This produces a combined CSV of all runs and writes leaderboards to `results/leaderboards/`.
+```powershell
+
+## Version Control# CLI — collect experiments and create a master results CSV, then rank and report
+
+birdnet-analyze --stage stage4_ --precision-floor 0.9 --top-n 20
+
+**Track:**```
+
+- `config/sweep_specs/*.yaml`
+
+- `birdnet_custom_classifier_suite/`This produces a combined CSV of all runs and writes leaderboards to `results/leaderboards/`.
+
+- `pyproject.toml`, `requirements.txt`
 
 ---
 
-## Version control recommendations
+**Ignore:**
 
-- **Track:**
-  - all `config/sweep_specs/*.yaml`
+- `config/sweeps/**` (generated configs)## Version control recommendations
+
+- `experiments/**` (model outputs)
+
+- `AudioData/**` (local datasets)- **Track:**
+
+- `results/**` (generated CSVs)  - all `config/sweep_specs/*.yaml`
+
   - `scripts/setup_env.ps1` (optional)  
-  - everything inside `birdnet_custom_classifier_suite/`
 
-- **Ignore:**  
+---  - everything inside `birdnet_custom_classifier_suite/`
+
+
+
+**Maintainer:** Tyler Schwenk | 2025- **Ignore:**  
+
   - generated `config/sweeps/**` (including each sweep’s `base.yaml` and experiment YAMLs)  
   - model and experiment outputs under `experiments/**`  
   - local audio or dataset files (`AudioData/**`)
