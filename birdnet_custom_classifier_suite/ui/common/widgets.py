@@ -451,16 +451,16 @@ def stream_terminal_output(
     max_lines: int = 800
 ) -> None:
     """
-    Display streaming terminal output in a disabled text area (auto-scrolls to bottom).
+    Display streaming terminal output in a scrollable, copyable code block.
     
     Use this for live-updating command output where you need to update the content
-    frequently. The disabled text area prevents user editing while remaining scrollable.
+    frequently. Uses st.code() for copyable output with syntax highlighting.
     
     Args:
         content: Current text content to display
-        key: Unique Streamlit key for this widget
-        label: Label for the text area
-        height: Height in pixels
+        key: Unique Streamlit key (unused, kept for API compatibility)
+        label: Label for the output block
+        height: Height in pixels (unused with st.code, kept for API compatibility)
         max_lines: Maximum lines to keep (truncates from start)
         
     Example:
@@ -478,6 +478,12 @@ def stream_terminal_output(
     lines = content.split('\n')
     if len(lines) > max_lines:
         lines = lines[-max_lines:]
+        display_content = '\n'.join(lines)
+        st.caption(f"**{label}** (showing last {max_lines} lines)")
+    else:
+        display_content = '\n'.join(lines)
+        if label:
+            st.caption(f"**{label}**")
     
-    display_content = '\n'.join(lines)
-    st.text_area(label, value=display_content, height=height, disabled=True, key=key)
+    # Use st.code for copyable, scrollable output
+    st.code(display_content, language="text")
