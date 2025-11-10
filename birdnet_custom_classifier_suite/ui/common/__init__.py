@@ -13,6 +13,8 @@ from .widgets import (
     confirm_action,
     parse_number_list,
     parse_list_field,
+    terminal_output,
+    stream_terminal_output,
 )
 
 __all__ = [
@@ -36,4 +38,7 @@ __all__ = [
     "confirm_action",
     "parse_number_list",
     "parse_list_field",
+    # Terminal output
+    "terminal_output",
+    "stream_terminal_output",
 ]

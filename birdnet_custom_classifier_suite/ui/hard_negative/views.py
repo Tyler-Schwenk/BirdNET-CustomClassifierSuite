@@ -20,7 +20,7 @@ import pandas as pd
 import streamlit as st
 
 from birdnet_custom_classifier_suite.ui.hard_negative import constants, utils
-from birdnet_custom_classifier_suite.ui.common import folder_picker
+from birdnet_custom_classifier_suite.ui.common import folder_picker, terminal_output
 from birdnet_custom_classifier_suite.ui.hard_negative.models import (
     ExportConfig,
     ExportMethod,
@@ -187,7 +187,12 @@ def _run_inference_workflow(config: Dict, st_: st) -> Optional[pd.DataFrame]:
             st_.error(f"Inference failed: {error_msg}")
             if result.logs:
                 with st_.expander("View logs"):
-                    st_.code("\n".join(result.logs[-500:]))
+                    terminal_output(
+                        content="\n".join(result.logs),
+                        label="Error logs",
+                        height=400,
+                        max_lines=500
+                    )
             return None
         
         progress_box.progress(100)
@@ -195,7 +200,12 @@ def _run_inference_workflow(config: Dict, st_: st) -> Optional[pd.DataFrame]:
 
         if result.logs:
             with st_.expander("View logs"):
-                st_.code("\n".join(result.logs[-200:]))
+                terminal_output(
+                    content="\n".join(result.logs),
+                    label="Inference logs",
+                    height=300,
+                    max_lines=200
+                )
         
         st_.info(f"Analyzer outputs saved to: `{result.output_path}`")
         

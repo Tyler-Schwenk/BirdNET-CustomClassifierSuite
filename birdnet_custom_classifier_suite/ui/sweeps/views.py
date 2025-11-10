@@ -11,7 +11,7 @@ import yaml
 
 from .types import SweepState
 from .utils import parse_num_list, parse_float, validate_quality, calculate_config_count
-from birdnet_custom_classifier_suite.ui.common import browse_folder, validate_folder_exists
+from birdnet_custom_classifier_suite.ui.common import browse_folder, validate_folder_exists, stream_terminal_output
 
 
 def sweep_form() -> SweepState:
@@ -363,6 +363,30 @@ def render_action_buttons(stage: int, sweep_name: str, out_dir: str) -> tuple[bo
     Returns:
         (save_clicked, generate_clicked, run_clicked, regen_run_clicked)
     """
+    # Check if spec file exists
+    spec_path = Path(f"config/sweep_specs/{sweep_name}.yaml")
+    spec_exists = spec_path.exists()
+
+    # Ensure session state key exists before creating widget to avoid Streamlit errors
+    if "use_existing_spec" not in st.session_state:
+        st.session_state["use_existing_spec"] = False
+
+    # If spec exists, show option to use it
+    if spec_exists:
+        st.info(f"📄 Existing spec found: `{spec_path}`")
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            # bind checkbox directly to session_state key
+            st.checkbox(
+                "Generate configs from existing spec file (ignore UI form)",
+                key="use_existing_spec",
+                help="Use the saved spec file instead of current UI inputs to generate configs"
+            )
+        if st.session_state.get("use_existing_spec"):
+            st.caption("✓ Will use existing spec file when you click 'Generate configs'")
+    
+    # Local convenience variable for button text
+    use_existing_spec = st.session_state.get("use_existing_spec", False)
     btn_cols = st.columns(4)
     with btn_cols[0]:
         save_spec_btn = st.button(
@@ -374,7 +398,8 @@ def render_action_buttons(stage: int, sweep_name: str, out_dir: str) -> tuple[bo
         gen_configs_btn = st.button(
             "⚙️ Generate configs", 
             key="gen_configs_top",
-            help="Generate individual experiment YAML configs in the output folder"
+            help="Generate individual experiment YAML configs in the output folder" + 
+                 (" (from existing spec file)" if use_existing_spec else " (from UI form)")
         )
     with btn_cols[2]:
         run_sweep_btn = st.button(
@@ -462,6 +487,25 @@ def sweep_actions(state: SweepState, feedback_placeholder: Any,
                 with open(target, "w", encoding="utf-8") as f:
                     yaml.safe_dump(pending["payload"], f, sort_keys=False)
                 feedback_placeholder.success(f"✅ Saved spec to {target}")
+            elif intent == "generate_from_spec":
+                # Generate from existing spec file (user chose to use saved spec)
+                # Clean existing YAMLs in the sweep directory before regenerating
+                try:
+                    spec_data = pending["payload"]["spec_data"]
+                    sweep_dir = Path(spec_data["out_dir"])
+                    if sweep_dir.exists():
+                        for p in sweep_dir.glob("*.yaml"):
+                            p.unlink()
+                except Exception as _e:
+                    feedback_placeholder.warning(f"Could not remove some existing YAMLs in {sweep_dir}: {_e}")
+                from birdnet_custom_classifier_suite.sweeps.sweep_generator import generate_sweep
+                generate_sweep(
+                    stage=spec_data["stage"],
+                    out_dir=spec_data["out_dir"],
+                    axes=spec_data["axes"],
+                    base_params=spec_data["base_params"],
+                )
+                feedback_placeholder.success(f"✅ Generated configs from existing spec: {pending['payload']['spec_path']}")
             elif intent in ("generate", "regen_run"):
                 # Generate flow: update spec, then clean and regenerate sweep configs
                 spec_p = pending["payload"].get("spec_path")
@@ -546,13 +590,27 @@ def sweep_actions(state: SweepState, feedback_placeholder: Any,
                         if now - last_ui > 0.1:
                             progress = int((completed / max(total, 1)) * 100)
                             progress_box.progress(min(progress, 100))
-                            log_area.text_area("Run log", value="\n".join(log_lines[-500:]), height=420, disabled=True)
+                            with log_area:
+                                stream_terminal_output(
+                                    content="\n".join(log_lines),
+                                    key=f"sweep_log_pending_{id(pending)}",
+                                    label="Run log",
+                                    height=420,
+                                    max_lines=500
+                                )
                             status_box.info(f"Running… {completed}/{total} done | ✓ {successes} • ✗ {failures}" + (f" | current: {current_exp}" if current_exp else ""))
                             last_ui = now
 
                     ret = proc.wait()
                     progress_box.progress(100)
-                    log_area.text_area("Run log", value="\n".join(log_lines[-800:]), height=420, disabled=True)
+                    with log_area:
+                        stream_terminal_output(
+                            content="\n".join(log_lines),
+                            key=f"sweep_log_pending_final_{id(pending)}",
+                            label="Run log",
+                            height=420,
+                            max_lines=800
+                        )
                     if ret != 0:
                         feedback_placeholder.error(f"❌ Sweep run failed with exit code {ret}. See logs above.")
                     else:
@@ -592,6 +650,44 @@ def sweep_actions(state: SweepState, feedback_placeholder: Any,
             spec_dir.mkdir(parents=True, exist_ok=True)
             spec_path = spec_dir / f"{state.sweep_name}.yaml"
 
+            # Check if user wants to use existing spec file
+            use_existing_spec = st.session_state.get("use_existing_spec", False)
+            
+            if use_existing_spec and spec_path.exists():
+                # Load spec from file and generate directly
+                with open(spec_path, "r", encoding="utf-8") as f:
+                    spec_data = yaml.safe_load(f)
+                
+                # Check for existing sweep configs
+                existing_yaml = list(out_dir_path.glob("*.yaml")) if out_dir_path.exists() else []
+                has_existing_sweep = bool(existing_yaml)
+                
+                if has_existing_sweep:
+                    # Prompt to overwrite existing sweep configs
+                    st.session_state["pending_overwrite"] = {
+                        "kind": "sweep",
+                        "target": str(out_dir_path),
+                        "payload": {
+                            "spec_data": spec_data,
+                            "spec_path": str(spec_path),
+                            "op": "generate_from_spec",
+                        },
+                        "details": f"{len(existing_yaml)} sweep YAML config(s) will be regenerated from spec",
+                    }
+                    confirm, cancel = prompt_overwrite("sweep", out_dir_path, f"{len(existing_yaml)} sweep YAML config(s) will be regenerated from spec")
+                    return
+                
+                # Fresh generation from existing spec
+                generate_sweep(
+                    stage=spec_data["stage"],
+                    out_dir=spec_data["out_dir"],
+                    axes=spec_data["axes"],
+                    base_params=spec_data["base_params"]
+                )
+                feedback_placeholder.success(f"✅ Generated configs from existing spec: {spec_path}")
+                return
+
+            # Normal path: use UI form data
             # Check for existing artifacts BEFORE creating or modifying anything
             existing_yaml = list(out_dir_path.glob("*.yaml")) if out_dir_path.exists() else []
             has_existing_sweep = bool(existing_yaml)
@@ -704,14 +800,28 @@ def sweep_actions(state: SweepState, feedback_placeholder: Any,
                 if now - last_ui > 0.1:
                     progress = int((completed / max(total, 1)) * 100)
                     progress_box.progress(min(progress, 100))
-                    log_area.text_area("Run log", value="\n".join(log_lines[-500:]), height=420, disabled=True)
+                    with log_area:
+                        stream_terminal_output(
+                            content="\n".join(log_lines),
+                            key="run_clicked_sweep_log",
+                            label="Run log",
+                            height=420,
+                            max_lines=500
+                        )
                     status_box.info(f"Running… {completed}/{total} done | ✓ {successes} • ✗ {failures}" + (f" | current: {current_exp}" if current_exp else ""))
                     last_ui = now
 
             ret = proc.wait()
             # Final update
             progress_box.progress(100)
-            log_area.text_area("Run log", value="\n".join(log_lines[-800:]), height=420, disabled=True)
+            with log_area:
+                stream_terminal_output(
+                    content="\n".join(log_lines),
+                    key="run_clicked_sweep_log_final",
+                    label="Run log",
+                    height=420,
+                    max_lines=800
+                )
             if ret != 0:
                 feedback_placeholder.error(f"❌ Sweep run failed with exit code {ret}. See logs above.")
             else:
@@ -834,12 +944,26 @@ def sweep_actions(state: SweepState, feedback_placeholder: Any,
                 if now - last_ui > 0.1:
                     progress = int((completed / max(total, 1)) * 100)
                     progress_box.progress(min(progress, 100))
-                    log_area.text_area("Run log", value="\n".join(log_lines[-500:]), height=420, disabled=True)
+                    with log_area:
+                        stream_terminal_output(
+                            content="\n".join(log_lines),
+                            key="regen_run_log",
+                            label="Run log",
+                            height=420,
+                            max_lines=500
+                        )
                     status_box.info(f"Running… {completed}/{total} done | ✓ {successes} • ✗ {failures}" + (f" | current: {current_exp}" if current_exp else ""))
                     last_ui = now
             ret = proc.wait()
             progress_box.progress(100)
-            log_area.text_area("Run log", value="\n".join(log_lines[-800:]), height=420, disabled=True)
+            with log_area:
+                stream_terminal_output(
+                    content="\n".join(log_lines),
+                    key="regen_run_log_final",
+                    label="Run log",
+                    height=420,
+                    max_lines=800
+                )
             if ret != 0:
                 feedback_placeholder.error(f"❌ Sweep run failed with exit code {ret}. See logs above.")
             else:

@@ -397,3 +397,87 @@ def parse_list_field(text: str) -> list[str]:
         items = [item.strip() for item in text.split(',')]
     
     return [item for item in items if item]
+
+
+# ============================================================================
+# Terminal/Command Output Widgets
+# ============================================================================
+
+def terminal_output(
+    content: str,
+    label: str = "Output",
+    height: int = 400,
+    max_lines: int = 1000,
+    language: str = "text"
+) -> None:
+    """
+    Display terminal/command output in a scrollable, copyable code block.
+    
+    This is the centralized terminal output widget used across the app for consistent
+    display of command outputs, logs, and subprocess results.
+    
+    Args:
+        content: Text content to display (will be truncated if too long)
+        label: Label for the output block
+        height: Height of the code block in pixels
+        max_lines: Maximum number of lines to display (truncates from start if exceeded)
+        language: Syntax highlighting language (default: "text", can be "python", "yaml", etc.)
+        
+    Example:
+        >>> terminal_output(
+        ...     content="\\n".join(log_lines),
+        ...     label="Sweep execution log",
+        ...     height=500,
+        ...     max_lines=800
+        ... )
+    """
+    lines = content.split('\n')
+    if len(lines) > max_lines:
+        # Keep most recent lines
+        lines = lines[-max_lines:]
+        display_content = '\n'.join(lines)
+        st.caption(f"Showing last {max_lines} lines (truncated)")
+    else:
+        display_content = content
+    
+    st.code(display_content, language=language)
+
+
+def stream_terminal_output(
+    content: str,
+    key: str,
+    label: str = "Run log",
+    height: int = 420,
+    max_lines: int = 800
+) -> None:
+    """
+    Display streaming terminal output in a disabled text area (auto-scrolls to bottom).
+    
+    Use this for live-updating command output where you need to update the content
+    frequently. The disabled text area prevents user editing while remaining scrollable.
+    
+    Args:
+        content: Current text content to display
+        key: Unique Streamlit key for this widget
+        label: Label for the text area
+        height: Height in pixels
+        max_lines: Maximum lines to keep (truncates from start)
+        
+    Example:
+        >>> log_lines = []
+        >>> log_area = st.empty()
+        >>> for line in process.stdout:
+        ...     log_lines.append(line)
+        ...     with log_area:
+        ...         stream_terminal_output(
+        ...             content="\\n".join(log_lines),
+        ...             key="sweep_log",
+        ...             label="Live execution log"
+        ...         )
+    """
+    lines = content.split('\n')
+    if len(lines) > max_lines:
+        lines = lines[-max_lines:]
+    
+    display_content = '\n'.join(lines)
+    st.text_area(label, value=display_content, height=height, disabled=True, key=key)
