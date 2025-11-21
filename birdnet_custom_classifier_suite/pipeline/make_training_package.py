@@ -98,7 +98,13 @@ def load_subset_files(subset_paths: List[str], audio_root: Path) -> pd.DataFrame
     """
     rows = []
     for subset_str in subset_paths:
-        subset_dir = (audio_root / subset_str).resolve()
+        # Strip leading AudioData/ prefix if present to avoid doubling the path
+        # (subset paths may be specified with or without AudioData prefix)
+        subset_relative = subset_str
+        if subset_relative.startswith("AudioData\\") or subset_relative.startswith("AudioData/"):
+            subset_relative = subset_relative.split("AudioData", 1)[1].lstrip("\\/")
+        
+        subset_dir = (audio_root / subset_relative).resolve()
         if not subset_dir.exists():
             logging.warning(f"Subset directory not found (skipping): {subset_dir}")
             continue
