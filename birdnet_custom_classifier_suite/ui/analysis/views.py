@@ -298,7 +298,7 @@ def leaderboard(summaries: List[ConfigSummary],
 
     # Optional config column controls
     st.write("**Show additional columns:**")
-    cols_ctrl = st.columns(10)
+    cols_ctrl = st.columns(12)
     with cols_ctrl[0]:
         show_quality = st.checkbox("Quality", value=False, key='lb_quality')
     with cols_ctrl[1]:
@@ -319,6 +319,10 @@ def leaderboard(summaries: List[ConfigSummary],
         show_learning_rate = st.checkbox("Learning Rate", value=False, key='lb_learning_rate')
     with cols_ctrl[9]:
         show_batch_size = st.checkbox("Batch Size", value=False, key='lb_batch_size')
+    with cols_ctrl[10]:
+        show_positive_subsets = st.checkbox("Positive Subsets", value=False, key='lb_positive_subsets')
+    with cols_ctrl[11]:
+        show_negative_subsets = st.checkbox("Negative Subsets", value=False, key='lb_negative_subsets')
 
     # Helper to format config values nicely
     def format_config_value(val):
@@ -408,6 +412,46 @@ def leaderboard(summaries: List[ConfigSummary],
                   summary.config_values.get('training_args.batch_size',
                   summary.config_values.get('batch_size')))
             row["Batch Size"] = format_config_value(val)
+        if show_positive_subsets:
+            val = summary.config_values.get('dataset.filters.positive_subsets',
+                  summary.config_values.get('filters.positive_subsets',
+                  summary.config_values.get('positive_subsets')))
+            # Format list values nicely - show basename only
+            if val and val != '[]':
+                import ast
+                try:
+                    if isinstance(val, str):
+                        parsed = ast.literal_eval(val)
+                        subsets = parsed if isinstance(parsed, list) else []
+                    else:
+                        subsets = val if isinstance(val, list) else []
+                    # Extract just the folder name from paths
+                    subset_names = [s.split('\\')[-1] if '\\' in s else s.split('/')[-1] for s in subsets]
+                    row["Positive Subsets"] = ', '.join(subset_names) if subset_names else 'none'
+                except:
+                    row["Positive Subsets"] = str(val)
+            else:
+                row["Positive Subsets"] = 'none'
+        if show_negative_subsets:
+            val = summary.config_values.get('dataset.filters.negative_subsets',
+                  summary.config_values.get('filters.negative_subsets',
+                  summary.config_values.get('negative_subsets')))
+            # Format list values nicely - show basename only
+            if val and val != '[]':
+                import ast
+                try:
+                    if isinstance(val, str):
+                        parsed = ast.literal_eval(val)
+                        subsets = parsed if isinstance(parsed, list) else []
+                    else:
+                        subsets = val if isinstance(val, list) else []
+                    # Extract just the folder name from paths
+                    subset_names = [s.split('\\')[-1] if '\\' in s else s.split('/')[-1] for s in subsets]
+                    row["Negative Subsets"] = ', '.join(subset_names) if subset_names else 'none'
+                except:
+                    row["Negative Subsets"] = str(val)
+            else:
+                row["Negative Subsets"] = 'none'
         
         for name, metric in summary.metrics.items():
             short_name = name.replace("metrics.", "").replace(".best_f1", "")
@@ -459,6 +503,10 @@ def leaderboard(summaries: List[ConfigSummary],
             config_column_names.append('Learning Rate')
         if show_batch_size:
             config_column_names.append('Batch Size')
+        if show_positive_subsets:
+            config_column_names.append('Positive Subsets')
+        if show_negative_subsets:
+            config_column_names.append('Negative Subsets')
 
         # Identify metric columns by those not Signature/Experiments/Config columns
         metric_cols = [c for c in df.columns if c not in (['Signature', 'Experiments'] + config_column_names)]
