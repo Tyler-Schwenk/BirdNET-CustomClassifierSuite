@@ -45,7 +45,7 @@ def generate_sweep(stage:int, out_dir:str, axes:dict, base_params:dict, prefix:s
         "inference": {
             "batch_size": 32,
             "threads": 4,
-            "min_conf": 0.5,
+            "min_conf": 0.0,  # Set to 0 to capture all predictions; evaluation will test multiple thresholds
         },
         "evaluation": {
             "thresholds": [0.5],
