@@ -90,9 +90,17 @@ def generate_sweep(stage:int, out_dir:str, axes:dict, base_params:dict, prefix:s
             base_cfg["analyzer_args"][k] = bp[k]
     # remaining params → training_args
     for k, v in bp.items():
-        if k in {"epochs", "batch_size", "fmin", "fmax", "overlap"}:
+        if k in {"epochs", "batch_size", "fmin", "fmax", "overlap", "call_type", "include_negatives", "balance"}:
             continue
         base_cfg["training_args"][k] = v
+    
+    # Handle training_package params
+    if "call_type" in bp:
+        base_cfg["training_package"]["call_type"] = bp["call_type"]
+    if "include_negatives" in bp:
+        base_cfg["training_package"]["include_negatives"] = bp["include_negatives"]
+    if "balance" in bp:
+        base_cfg["training_package"]["balance"] = bp["balance"]
 
     # Write base.yaml
     with open(root / "base.yaml", "w", encoding="utf-8") as f:
@@ -107,21 +115,27 @@ def generate_sweep(stage:int, out_dir:str, axes:dict, base_params:dict, prefix:s
         resolved_ta = deepcopy(base_cfg.get("training_args", {}))
 
         # Overlay axis overrides that belong to training_args
-        # Exclude non-TA keys handled separately
-        non_ta = {"seed", "quality", "balance", "batch_size", "positive_subsets", "negative_subsets"}
+        # Exclude non-TA keys handled separately (training_package and training params)
+        non_ta = {"seed", "quality", "balance", "batch_size", "positive_subsets", "negative_subsets", "call_type", "include_negatives"}
         for k, v in combo.items():
             if k in non_ta:
                 continue
             # Map directly into training_args (includes upsampling_mode/ratio, learning_rate, dropout, hidden_units, etc.)
             resolved_ta[k] = v
 
-        # Build training_package section with quality, balance, and subset axes
+        # Build training_package section with quality, balance, call_type, and subset axes
         training_package = {
-            "include_negatives": True,
+            "include_negatives": combo.get("include_negatives", base_cfg.get("training_package", {}).get("include_negatives", True)),
             # Use axis values if provided, else fall back to base defaults
             "balance": combo.get("balance", base_cfg.get("training_package", {}).get("balance", True)),
             "quality": combo.get("quality", base_cfg.get("training_package", {}).get("quality", ["high"])),
         }
+        
+        # Add call_type if present in combo or base
+        if "call_type" in combo:
+            training_package["call_type"] = combo["call_type"]
+        elif "call_type" in base_cfg.get("training_package", {}):
+            training_package["call_type"] = base_cfg["training_package"]["call_type"]
         
         # Add subset axes if present in combo (for data composition sweeps)
         if "positive_subsets" in combo:
