@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 
 from birdnet_custom_classifier_suite.utils.config import load_config
-from birdnet_custom_classifier_suite.pipeline import make_training_package, collect_experiments, evaluate_results
+from birdnet_custom_classifier_suite.pipeline import make_training_package, make_validation_package, collect_experiments, evaluate_results
 import shutil
 import subprocess
 import sys
@@ -76,7 +76,20 @@ def build_training_cmd(cfg, exp_dir):
     dataset = exp_dir / "training_package"
     outdir = exp_dir / "model"
     cmd = [python_exe, "-m", "birdnet_analyzer.train", str(dataset), "-o", str(outdir)]
-    cmd = apply_args(cmd, cfg.get("training", {}))
+    
+    # Check if validation package should be used
+    use_validation = cfg.get("training", {}).get("use_validation", False)
+    if use_validation:
+        validation_package = exp_dir / "validation_package"
+        if validation_package.exists():
+            cmd.extend(["--test_data", str(validation_package)])
+            print(f"Using validation package: {validation_package}")
+        else:
+            print(f"WARNING: use_validation=True but validation package not found at {validation_package}")
+    
+    # Apply other training flags (exclude use_validation as it's not a BirdNET flag)
+    training_args = {k: v for k, v in cfg.get("training", {}).items() if k != "use_validation"}
+    cmd = apply_args(cmd, training_args)
 
     # Sanitize training_args to match BirdNET-Analyzer CLI
     ta = dict(cfg.get("training_args", {}) or {})
@@ -148,6 +161,16 @@ def main():
     # Step 1: Training package
     print("\n=== STEP 1: Building training package ===")
     make_training_package.run_from_config(cfg, verbose=args.verbose)
+    
+    # Step 1b: Validation package (if enabled)
+    use_validation = cfg.get("training", {}).get("use_validation", False)
+    if use_validation:
+        print("\n=== STEP 1b: Building validation package ===")
+        try:
+            make_validation_package.run_from_config(cfg, verbose=args.verbose)
+        except Exception as e:
+            print(f"ERROR: Failed to build validation package: {e}")
+            raise
 
     # Step 2: Train or skip
     if args.skip_training:
@@ -175,7 +198,7 @@ def main():
 
     # Step 5: Update master experiment index
     print("\n=== STEP 5: Updating master experiment index ===")
-    collect_experiments.collect_experiments("experiments", "all_experiments.csv")
+    collect_experiments.collect_experiments("experiments", "results/all_experiments.csv")
 
     print("\nPipeline complete!")
 

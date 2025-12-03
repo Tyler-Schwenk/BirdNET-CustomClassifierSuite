@@ -41,6 +41,7 @@ def generate_sweep(stage:int, out_dir:str, axes:dict, base_params:dict, prefix:s
             "threads": 4,
             "val_split": 0.2,
             "autotune": False,
+            "use_validation": False,  # Default: use random val_split instead of validation package
         },
         "inference": {
             "batch_size": 32,
@@ -83,6 +84,8 @@ def generate_sweep(stage:int, out_dir:str, axes:dict, base_params:dict, prefix:s
     if "batch_size" in bp:
         base_cfg["training"]["batch_size"] = bp["batch_size"]
         base_cfg["inference"]["batch_size"] = bp["batch_size"]
+    if "use_validation" in bp:
+        base_cfg["training"]["use_validation"] = bp["use_validation"]
     # audio params to both training_args and analyzer_args
     for k in ("fmin", "fmax", "overlap"):
         if k in bp:
@@ -90,7 +93,7 @@ def generate_sweep(stage:int, out_dir:str, axes:dict, base_params:dict, prefix:s
             base_cfg["analyzer_args"][k] = bp[k]
     # remaining params → training_args
     for k, v in bp.items():
-        if k in {"epochs", "batch_size", "fmin", "fmax", "overlap", "call_type", "include_negatives", "balance"}:
+        if k in {"epochs", "batch_size", "fmin", "fmax", "overlap", "call_type", "include_negatives", "balance", "use_validation", "quality"}:
             continue
         base_cfg["training_args"][k] = v
     
@@ -101,6 +104,8 @@ def generate_sweep(stage:int, out_dir:str, axes:dict, base_params:dict, prefix:s
         base_cfg["training_package"]["include_negatives"] = bp["include_negatives"]
     if "balance" in bp:
         base_cfg["training_package"]["balance"] = bp["balance"]
+    if "quality" in bp:
+        base_cfg["training_package"]["quality"] = bp["quality"]
 
     # Write base.yaml
     with open(root / "base.yaml", "w", encoding="utf-8") as f:
@@ -116,7 +121,7 @@ def generate_sweep(stage:int, out_dir:str, axes:dict, base_params:dict, prefix:s
 
         # Overlay axis overrides that belong to training_args
         # Exclude non-TA keys handled separately (training_package and training params)
-        non_ta = {"seed", "quality", "balance", "batch_size", "positive_subsets", "negative_subsets", "call_type", "include_negatives"}
+        non_ta = {"seed", "quality", "balance", "batch_size", "positive_subsets", "negative_subsets", "call_type", "include_negatives", "use_validation"}
         for k, v in combo.items():
             if k in non_ta:
                 continue
@@ -145,7 +150,11 @@ def generate_sweep(stage:int, out_dir:str, axes:dict, base_params:dict, prefix:s
 
         cfg = {
             "experiment": {"name": exp_name, "seed": combo.get("seed", 123)},
-            "training": {"batch_size": bs, "epochs": base_cfg.get("training", {}).get("epochs", 50)},
+            "training": {
+                "batch_size": bs,
+                "epochs": base_cfg.get("training", {}).get("epochs", 50),
+                "use_validation": combo.get("use_validation", base_cfg.get("training", {}).get("use_validation", False)),
+            },
             "inference": {"batch_size": bs},
             "training_package": training_package,
             "training_args": resolved_ta,

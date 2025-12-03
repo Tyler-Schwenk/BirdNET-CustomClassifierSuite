@@ -29,9 +29,11 @@ class SweepState:
     fmin: int = 0
     fmax: int = 15000
     overlap: float = 0.0
+    use_validation: bool = False
     
     # Axes (values to sweep over)
     seeds: list[int] = field(default_factory=lambda: [123])
+    use_validation_axis: list[bool] = field(default_factory=lambda: [])
     hidden_units: list[int] = field(default_factory=lambda: [0, 128, 512])
     dropout_axis: list[float] = field(default_factory=lambda: [0.0, 0.25])
     learning_rate_axis: list[float] = field(default_factory=lambda: [0.0001, 0.0005, 0.001])
@@ -60,6 +62,7 @@ class SweepState:
             "fmin": self.fmin,
             "fmax": self.fmax,
             "overlap": self.overlap,
+            "use_validation": self.use_validation,
         }
     
     def get_axes_dict(self) -> dict[str, Any]:
@@ -81,6 +84,8 @@ class SweepState:
             axes["upsampling_mode"] = self.upsampling_mode_opts
         if self.upsampling_ratio_axis:
             axes["upsampling_ratio"] = self.upsampling_ratio_axis
+        if self.use_validation_axis:
+            axes["use_validation"] = self.use_validation_axis
         if self.positive_subset_opts and self.positive_subset_opts != [[]]:
             axes["positive_subsets"] = self.positive_subset_opts
         if self.negative_subset_opts and self.negative_subset_opts != [[]]:

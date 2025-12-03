@@ -49,6 +49,14 @@ def sweep_form() -> SweepState:
         state.label_smoothing = st.checkbox("label_smoothing", value=False)
         state.focal_loss = st.checkbox("focal_loss", value=False)
         
+        st.markdown("---")
+        st.markdown("**Validation Package**")
+        state.use_validation = st.checkbox(
+            "use_validation (base default)",
+            value=False,
+            help="Use validation package from val split instead of random val_split. Only applies if not swept."
+        )
+        
         # Conditional focal loss params
         if state.focal_loss:
             state.focal_loss_gamma = st.number_input(
@@ -170,6 +178,16 @@ def sweep_form() -> SweepState:
             placeholder="e.g., 0.0, 0.25"
         )
         state.upsampling_ratio_axis = parse_num_list(up_ratio_axis_str, float)
+        
+        st.markdown("---")
+        st.markdown("**Validation sweep options**")
+        state.use_validation_axis = st.multiselect(
+            "use_validation options",
+            options=[False, True],
+            default=[],
+            key="sweep_use_validation",
+            help="Compare random val_split (False) vs validation package (True). Leave empty to use base default."
+        )
         
         # ============ DATA COMPOSITION SWEEP OPTIONS ============
         st.markdown("---")
