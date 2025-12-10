@@ -110,11 +110,14 @@ def main():
                         cols = list(df_to_use.columns)
                         quality_col = _find_col(cols, ['dataset.filters.quality', 'filters.quality', '.quality', 'quality'])
                         balance_col = _find_col(cols, ['dataset.filters.balance', 'filters.balance', '.balance', 'balance'])
+                        validation_col = _find_col(cols, ['validation_package.used', 'validation.used', 'use_validation'])
 
                         if quality_col and state.quality_filter:
                             df_to_use = df_to_use[df_to_use[quality_col].isin(state.quality_filter)]
                         if balance_col and state.balance_filter:
                             df_to_use = df_to_use[df_to_use[balance_col].isin(state.balance_filter)]
+                        if validation_col and hasattr(state, 'validation_filter') and state.validation_filter:
+                            df_to_use = df_to_use[df_to_use[validation_col].isin(state.validation_filter)]
 
                         # Stage/sweep filter: extract from experiment.name
                         if state.sweep_filter and 'experiment.name' in cols:

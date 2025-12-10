@@ -136,6 +136,26 @@ def make_experiment_summary(exp_dir: str):
         summary["training_args"] = cfg["training_args"]
     if "analyzer_args" in cfg and cfg["analyzer_args"]:
         summary["analyzer_args"] = cfg["analyzer_args"]
+    
+    # Check if validation package was used
+    validation_package_path = os.path.join(exp_dir, "validation_package")
+    validation_manifest_path = os.path.join(validation_package_path, "validation_manifest.csv")
+    if os.path.exists(validation_package_path) and os.path.exists(validation_manifest_path):
+        # Count validation files
+        try:
+            val_manifest = pd.read_csv(validation_manifest_path)
+            val_pos = len(val_manifest[val_manifest["label"].str.lower() == "positive"])
+            val_neg = len(val_manifest[val_manifest["label"].str.lower() == "negative"])
+            summary["validation_package"] = {
+                "used": True,
+                "positive_count": val_pos,
+                "negative_count": val_neg,
+                "total_count": len(val_manifest)
+            }
+        except Exception:
+            summary["validation_package"] = {"used": True}
+    else:
+        summary["validation_package"] = {"used": False}
 
 
     outpath = os.path.join(eval_dir, "experiment_summary.json")
@@ -187,7 +207,9 @@ def evaluate(df, split_name, outdir):
     for thr in THRESHOLDS:
         y_pred = (y_score >= thr).astype(int)
         cm = confusion_matrix(y_true, y_pred, labels=[1, 0])
-        tn, fp, fn, tp = cm.ravel() if cm.size == 4 else (0, 0, 0, 0)
+        # confusion_matrix with labels=[1, 0] returns [[tp, fn], [fp, tn]]
+        # so ravel() gives [tp, fn, fp, tn]
+        tp, fn, fp, tn = cm.ravel() if cm.size == 4 else (0, 0, 0, 0)
         precision = tp / (tp + fp) if (tp + fp) else 0.0
         recall = tp / (tp + fn) if (tp + fn) else 0.0
         f1 = 2 * precision * recall / (precision + recall) if (precision + recall) else 0.0
@@ -238,7 +260,8 @@ def evaluate(df, split_name, outdir):
             if len(sub) == 0:
                 continue
             cm = confusion_matrix(sub["y_true"], sub["y_pred"], labels=[1, 0])
-            tn, fp, fn, tp = cm.ravel() if cm.size == 4 else (0, 0, 0, 0)
+            # confusion_matrix with labels=[1, 0] returns [[tp, fn], [fp, tn]]
+            tp, fn, fp, tn = cm.ravel() if cm.size == 4 else (0, 0, 0, 0)
             precision = tp / (tp + fp) if (tp + fp) else 0.0
             recall = tp / (tp + fn) if (tp + fn) else 0.0
             f1 = 2 * precision * recall / (precision + recall) if (precision + recall) else 0.0

@@ -66,27 +66,26 @@ def collect_experiments(exp_root: str, out_csv: str = "results/all_experiments.c
         "training_args.fmin","training_args.fmax","analyzer_args.fmin","analyzer_args.fmax","analyzer_args.sensitivity","analyzer_args.min_conf","training_args.overlap",
         "analyzer_args.overlap","training_args.focal-loss","training_args.focal-loss-gamma","training_args.focal-loss-alpha","training_args.learning_rate",
         "training.dropout","training_args.hidden_units","training_args.mixup","training_args.dropout","training_args.label_smoothing",
-        "training_args.upsampling_mode","training_args.upsampling_ratio","training_args.batch_size","training_args.focal_loss","training_args.epochs"
+        "training_args.upsampling_mode","training_args.upsampling_ratio","training_args.batch_size","training_args.focal_loss","training_args.epochs",
+        "validation_package.used","validation_package.positive_count","validation_package.negative_count","validation_package.total_count"
     ]
 
     # Only keep minimal columns
     df_new = df_new.loc[:, [c for c in minimal_cols if c in df_new.columns]]
 
-    key_cols = [c for c in ["experiment.name", "metadata.git_commit", "metadata.timestamp"] if c in df_new.columns]
-
     if out_path.exists():
         df_old = pd.read_csv(out_path)
         df_old = df_old.loc[:, [c for c in minimal_cols if c in df_old.columns]]
         df_combined = pd.concat([df_old, df_new], ignore_index=True)
-        if key_cols:
-            df_combined = df_combined.drop_duplicates(subset=key_cols, keep="last")
-        else:
-            df_combined = df_combined.drop_duplicates(keep="last")
     else:
-        if key_cols:
-            df_combined = df_new.drop_duplicates(subset=key_cols, keep="last")
-        else:
-            df_combined = df_new.drop_duplicates(keep="last")
+        df_combined = df_new
+
+    # Deduplicate by experiment.name, keeping the most recent (by timestamp)
+    if "experiment.name" in df_combined.columns:
+        if "metadata.timestamp" in df_combined.columns:
+            # Sort by timestamp (newest last), then drop duplicates keeping last (most recent)
+            df_combined = df_combined.sort_values("metadata.timestamp")
+        df_combined = df_combined.drop_duplicates(subset=["experiment.name"], keep="last")
 
     # Write only minimal columns, in order
     df_combined = df_combined.loc[:, [c for c in minimal_cols if c in df_combined.columns]]

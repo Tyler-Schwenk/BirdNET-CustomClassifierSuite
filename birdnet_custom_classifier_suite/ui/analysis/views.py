@@ -255,6 +255,20 @@ def metric_controls(state: UIState, df: Optional[pd.DataFrame] = None, container
                 )
                 state.balance_filter = selected if selected else None
 
+            # Validation package filter
+            validation_col = _find_col(cols, [
+                'validation_package.used', 'validation.used', 'use_validation'
+            ])
+            if validation_col:
+                v_vals = sorted(pd.Series(df[validation_col].dropna().unique()).tolist())
+                if v_vals:
+                    selected = st.multiselect(
+                        f"Validation Package ({validation_col})",
+                        options=v_vals,
+                        default=getattr(state, 'validation_filter', None) or []
+                    )
+                    state.validation_filter = selected if selected else None
+
             # Extract stage/sweep from experiment.name
             if 'experiment.name' in cols:
                 def extract_stage(name):
@@ -304,24 +318,29 @@ def leaderboard(summaries: List[ConfigSummary],
     with cols_ctrl[1]:
         show_balance = st.checkbox("Balance", value=False, key='lb_balance')
     with cols_ctrl[2]:
-        show_upsampling = st.checkbox("Upsampling", value=False, key='lb_upsampling')
+        show_use_validation = st.checkbox("Use Validation", value=False, key='lb_use_validation')
     with cols_ctrl[3]:
-        show_mixup = st.checkbox("Mixup", value=False, key='lb_mixup')
+        show_upsampling = st.checkbox("Upsampling", value=False, key='lb_upsampling')
     with cols_ctrl[4]:
-        show_label_smoothing = st.checkbox("Label Smoothing", value=False, key='lb_label_smoothing')
+        show_mixup = st.checkbox("Mixup", value=False, key='lb_mixup')
     with cols_ctrl[5]:
-        show_focal_loss = st.checkbox("Focal Loss", value=False, key='lb_focal_loss')
+        show_label_smoothing = st.checkbox("Label Smoothing", value=False, key='lb_label_smoothing')
     with cols_ctrl[6]:
-        show_hidden_units = st.checkbox("Hidden Units", value=False, key='lb_hidden_units')
+        show_focal_loss = st.checkbox("Focal Loss", value=False, key='lb_focal_loss')
     with cols_ctrl[7]:
-        show_dropout = st.checkbox("Dropout", value=False, key='lb_dropout')
+        show_hidden_units = st.checkbox("Hidden Units", value=False, key='lb_hidden_units')
     with cols_ctrl[8]:
-        show_learning_rate = st.checkbox("Learning Rate", value=False, key='lb_learning_rate')
+        show_dropout = st.checkbox("Dropout", value=False, key='lb_dropout')
     with cols_ctrl[9]:
-        show_batch_size = st.checkbox("Batch Size", value=False, key='lb_batch_size')
+        show_learning_rate = st.checkbox("Learning Rate", value=False, key='lb_learning_rate')
     with cols_ctrl[10]:
-        show_positive_subsets = st.checkbox("Positive Subsets", value=False, key='lb_positive_subsets')
+        show_batch_size = st.checkbox("Batch Size", value=False, key='lb_batch_size')
     with cols_ctrl[11]:
+        show_positive_subsets = st.checkbox("Positive Subsets", value=False, key='lb_positive_subsets')
+    
+    # Add second row for remaining options
+    cols_ctrl2 = st.columns(12)
+    with cols_ctrl2[0]:
         show_negative_subsets = st.checkbox("Negative Subsets", value=False, key='lb_negative_subsets')
 
     # Helper to format config values nicely
@@ -360,6 +379,12 @@ def leaderboard(summaries: List[ConfigSummary],
             val = summary.config_values.get('dataset.filters.balance',
                   summary.config_values.get('filters.balance'))
             row["Balance"] = format_config_value(val)
+        if show_use_validation:
+            val = summary.config_values.get('validation_package.used',
+                  summary.config_values.get('validation.used',
+                  summary.config_values.get('training.use_validation',
+                  summary.config_values.get('use_validation'))))
+            row["Use Validation"] = format_config_value(val)
         if show_upsampling:
             # Look for upsampling mode and ratio
             mode = summary.config_values.get('training_args.upsampling_mode',
@@ -487,6 +512,8 @@ def leaderboard(summaries: List[ConfigSummary],
             config_column_names.append('Quality')
         if show_balance:
             config_column_names.append('Balance')
+        if show_use_validation:
+            config_column_names.append('Use Validation')
         if show_upsampling:
             config_column_names.append('Upsampling')
         if show_mixup:
@@ -553,6 +580,8 @@ def leaderboard(summaries: List[ConfigSummary],
             gb.configure_column('Quality', minWidth=80, width=100)
         if show_balance and 'Balance' in df_display.columns:
             gb.configure_column('Balance', minWidth=80, width=120)
+        if show_use_validation and 'Use Validation' in df_display.columns:
+            gb.configure_column('Use Validation', minWidth=100, width=130)
         if show_upsampling and 'Upsampling' in df_display.columns:
             gb.configure_column('Upsampling', minWidth=100, width=140)
         if show_mixup and 'Mixup' in df_display.columns:
