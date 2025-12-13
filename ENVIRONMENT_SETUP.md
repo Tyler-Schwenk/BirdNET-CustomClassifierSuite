@@ -45,14 +45,29 @@ tabulate==0.9.0
    pip install -e .
    ```
 
-3. **BirdNET-Analyzer is used WITHOUT installation:**
-   - The `external/BirdNET-Analyzer` directory is cloned as a submodule
-   - Import paths reference it directly (e.g., via sys.path manipulation)
-   - Do NOT run `pip install -e external/BirdNET-Analyzer` (it will fail due to Python version conflict)
+3. **Fix BirdNET-Analyzer Python version requirement:**
+   
+   The pipeline runs `python -m birdnet_analyzer.train` in subprocesses, which requires BirdNET to be installed as a package. However, BirdNET's `pyproject.toml` declares `requires-python = ">=3.11"` which conflicts with TensorFlow 2.15.1.
+   
+   **Solution:** Temporarily edit the BirdNET requirement:
+   
+   ```bash
+   # Edit external/BirdNET-Analyzer/pyproject.toml
+   # Line 14: Change from:
+   requires-python = ">=3.11"
+   # To:
+   requires-python = ">=3.10"
+   ```
+   
+   Then install BirdNET in editable mode:
+   ```bash
+   pip install -e external/BirdNET-Analyzer[train]
+   ```
 
 4. **Verify installation:**
    ```bash
    python -c "import tensorflow; print('TensorFlow:', tensorflow.__version__)"
+   python -c "import birdnet_analyzer; print('BirdNET:', birdnet_analyzer.__version__)"
    python -c "import birdnet_custom_classifier_suite; print('Suite installed OK')"
    ```
 
@@ -60,25 +75,14 @@ tabulate==0.9.0
 
 - **TensorFlow 2.15.1** only supports Python 3.10 (not 3.11+)
 - **BirdNET-Analyzer** declares `requires-python = ">=3.11"` in pyproject.toml
-- **Solution:** Use Python 3.10 + TensorFlow 2.15.1, and import BirdNET code directly from `external/BirdNET-Analyzer` without pip installing it
+- **The pipeline** runs `python -m birdnet_analyzer.train` as a subprocess, requiring BirdNET to be an installed package
+- **Solution:** Use Python 3.10 + TensorFlow 2.15.1, patch BirdNET's Python requirement to allow 3.10, then install it
 
-### Note on requirements.txt
+### Critical Note
 
-The line `-e external/BirdNET-Analyzer[train]` in `requirements.txt` will fail to install. This is expected and OK - we don't need it installed as a package.
-
-### Optional: Fix BirdNET-Analyzer Python Requirement
-
-If you want to properly install BirdNET-Analyzer, you can temporarily patch its `pyproject.toml`:
-
-```bash
-# Edit external/BirdNET-Analyzer/pyproject.toml
-# Change: requires-python = ">=3.11"
-# To:     requires-python = ">=3.10"
+The training pipeline **requires** BirdNET-Analyzer to be installed as a package because it runs:
+```python
+subprocess.run([python_exe, "-m", "birdnet_analyzer.train", ...])
 ```
 
-Then install:
-```bash
-pip install -e external/BirdNET-Analyzer[train]
-```
-
-However, the current setup works fine without this.
+Simply having the code in `external/BirdNET-Analyzer` is NOT enough - the `-m` flag requires a properly installed package on the Python path.
