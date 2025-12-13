@@ -27,9 +27,9 @@ from birdnet_custom_classifier_suite.ui import (
 
 def main():
     st.set_page_config(page_title="Experiment Explorer", layout="wide")
-    st.title("Experiment Explorer — BirdNET Custom Classifier Suite")
+    st.title("I <3 BIKE LANES")
     st.markdown(
-        "Explore results, design parameter sweeps, and run them from one app."
+        "cars are lame anyway"
     )
 
     # Initialize or get session state (persists between reruns)
