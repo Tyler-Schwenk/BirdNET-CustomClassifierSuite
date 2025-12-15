@@ -38,6 +38,18 @@ def cleanup_inference_dirs(exp_dir: Path):
                 print(f"Removed {target}")
 
 
+def cleanup_validation_package(exp_dir: Path):
+    """Remove Negative and RADR folders from validation package."""
+    vp_dir = exp_dir / "validation_package"
+    if not vp_dir.exists():
+        return
+    for sub in ["Negative", "RADR"]:
+        folder = vp_dir / sub
+        if folder.exists():
+            shutil.rmtree(folder)
+            print(f"Removed {folder}")
+
+
 def apply_args(cmd, args_dict):
     for key, val in (args_dict or {}).items():
         if val is None or val is False:
@@ -204,6 +216,9 @@ def main():
 
     print("Cleaning up training package...")
     cleanup_training_package(exp_dir)
+
+    print("Cleaning up validation package...")
+    cleanup_validation_package(exp_dir)
 
     print("Cleaning up inference subfolders...")
     cleanup_inference_dirs(exp_dir)

@@ -37,7 +37,7 @@ Copy-Item $birdnetToml "$birdnetToml.backup"
 
 # Patch the Python version requirement
 (Get-Content $birdnetToml) -replace 'requires-python = ">=3.11"', 'requires-python = ">=3.10"' | Set-Content $birdnetToml
-Write-Host "✓ Patched $birdnetToml (backup saved as .backup)" -ForegroundColor Green
+Write-Host "[OK] Patched $birdnetToml (backup saved as .backup)" -ForegroundColor Green
 
 Write-Host ""
 Write-Host "Step 4: Installing BirdNET-Analyzer in editable mode..." -ForegroundColor Green
@@ -45,13 +45,13 @@ pip install -e external\BirdNET-Analyzer[train]
 
 Write-Host ""
 Write-Host "Step 5: Verifying installation..." -ForegroundColor Green
-python -c "import tensorflow; print('✓ TensorFlow:', tensorflow.__version__)"
-python -c "import birdnet_analyzer; print('✓ BirdNET-Analyzer:', birdnet_analyzer.__version__)"
-python -c "import birdnet_custom_classifier_suite; print('✓ Custom Classifier Suite: OK')"
+python --% -c "import tensorflow; print('[OK] TensorFlow:', tensorflow.__version__)"
+python --% -c "import birdnet_analyzer; print('[OK] BirdNET-Analyzer:', birdnet_analyzer.__version__)"
+python --% -c "import birdnet_custom_classifier_suite; print('[OK] Custom Classifier Suite: OK')"
 
 Write-Host ""
 Write-Host "==================================================" -ForegroundColor Cyan
-Write-Host "Setup complete! 🎉" -ForegroundColor Cyan
+Write-Host "Setup complete!" -ForegroundColor Cyan
 Write-Host "==================================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Next steps:" -ForegroundColor Yellow
