@@ -26,6 +26,14 @@ from birdnet_custom_classifier_suite.ui import (
 
 
 def main():
+    """Main Streamlit app entry point.
+    
+    Architecture:
+    - Uses session state for persistence across reruns (ui_state, selected_signature)
+    - Four tabs: Evaluate (leaderboard), Sweeps (design runs), Hard Negatives, File Management
+    - Auto-loads and analyzes default CSV on first visit
+    - Left column: filters/controls, Right column: results/charts
+    """
     st.set_page_config(page_title="Experiment Explorer", layout="wide")
     st.title("I <3 BIKE LANES")
     st.markdown(

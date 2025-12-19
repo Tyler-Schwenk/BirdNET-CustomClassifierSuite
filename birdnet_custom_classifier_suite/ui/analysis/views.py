@@ -1,9 +1,14 @@
 """
 Reusable UI components for experiment analysis.
 
-This module provides Streamlit-based UI components that can be composed
-into larger applications. Components are designed to be stateless and
-reusable.
+Components:
+- data_loader: CSV selection and upload
+- metric_controls: Metric prefix, top N, precision floor, filters
+- leaderboard: Interactive table with optional columns (Quality, Balance, Call Type, etc.)
+- signature_details: Per-run breakdown for selected configuration
+
+All components use UIState for session persistence and are designed to be
+stateless and composable (can be rendered in any container/column).
 """
 
 from __future__ import annotations
@@ -301,10 +306,28 @@ def leaderboard(summaries: List[ConfigSummary],
                 on_select: Optional[Callable[[str], None]] = None,
                 show_aggrid_debug: bool = False,
                 debug_container=None):
-    """Render the leaderboard table with top configurations.
-
-    This renders an interactive table using AgGrid when available. Selecting
-    a row will call `on_select(signature)` so the parent UI can show details.
+    """Render interactive leaderboard table with top configurations.
+    
+    Features:
+    - Optional column toggles (Quality, Balance, Call Type, etc.)
+    - AgGrid table with click-to-select, sortable columns, filtering
+    - Metrics display as "mean ± std" with numeric sorting
+    - Returns DataFrame for download/charting
+    
+    Args:
+        summaries: List of ConfigSummary objects (already ranked/filtered)
+        on_select: Callback(signature) when user clicks a row
+        show_aggrid_debug: If True, dump AgGrid response for debugging
+        debug_container: Streamlit container for debug output
+        
+    Returns:
+        DataFrame: Current table (with toggled columns) for download/charts
+        
+    Column Toggle Pattern:
+        1. Checkbox control → show_<column>
+        2. Extract from config_values with fallback keys
+        3. Add to config_column_names list
+        4. Configure AgGrid column (width, sorting)
     """
     if not summaries:
         st.info("No configurations to show.")
@@ -342,6 +365,8 @@ def leaderboard(summaries: List[ConfigSummary],
     cols_ctrl2 = st.columns(12)
     with cols_ctrl2[0]:
         show_negative_subsets = st.checkbox("Negative Subsets", value=False, key='lb_negative_subsets')
+    with cols_ctrl2[1]:
+        show_call_type = st.checkbox("Call Type", value=False, key='lb_call_type')
 
     # Helper to format config values nicely
     def format_config_value(val):
@@ -477,6 +502,11 @@ def leaderboard(summaries: List[ConfigSummary],
                     row["Negative Subsets"] = str(val)
             else:
                 row["Negative Subsets"] = 'none'
+        if show_call_type:
+            val = summary.config_values.get('dataset.filters.call_type',
+                  summary.config_values.get('filters.call_type',
+                  summary.config_values.get('call_type')))
+            row["Call Type"] = format_config_value(val)
         
         for name, metric in summary.metrics.items():
             short_name = name.replace("metrics.", "").replace(".best_f1", "")
@@ -534,6 +564,8 @@ def leaderboard(summaries: List[ConfigSummary],
             config_column_names.append('Positive Subsets')
         if show_negative_subsets:
             config_column_names.append('Negative Subsets')
+        if show_call_type:
+            config_column_names.append('Call Type')
 
         # Identify metric columns by those not Signature/Experiments/Config columns
         metric_cols = [c for c in df.columns if c not in (['Signature', 'Experiments'] + config_column_names)]
@@ -598,6 +630,8 @@ def leaderboard(summaries: List[ConfigSummary],
             gb.configure_column('Learning Rate', minWidth=120, width=140)
         if show_batch_size and 'Batch Size' in df_display.columns:
             gb.configure_column('Batch Size', minWidth=90, width=110)
+        if show_call_type and 'Call Type' in df_display.columns:
+            gb.configure_column('Call Type', minWidth=100, width=130)
 
         # Add formatted mean columns and hidden std columns
         for mc in metric_cols:

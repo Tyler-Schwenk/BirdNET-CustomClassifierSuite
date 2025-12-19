@@ -48,14 +48,22 @@ def summarize_metrics(
 ) -> Tuple[List[ConfigSummary], pd.DataFrame]:
     """Compute summary statistics for configurations.
     
+    Process:
+    1. Add __signature column (hash of config params, excludes seeds)
+    2. Group by signature, compute mean/std for metrics
+    3. Compute stability (inverse coefficient of variation)
+    4. Rank by F1, precision floor, stability weight
+    5. Extract config values from original df for each signature
+    6. Return top N as ConfigSummary objects + full summary DataFrame
+    
     Args:
-        df: DataFrame with experiment results
-        metric_prefix: Metric group to analyze (e.g., metrics.ood.best_f1)
-        top_n: Number of top configurations to return
-        precision_floor: Optional minimum precision threshold
+        df: DataFrame with experiment results (from all_experiments.csv)
+        metric_prefix: Metric group to analyze (e.g., "metrics.ood.best_f1")
+        top_n: Number of top configurations to return (None = all)
+        precision_floor: Optional minimum precision threshold (0.0-1.0 or 0-100)
         
     Returns:
-        Tuple of (top config summaries, full summary DataFrame)
+        Tuple[List[ConfigSummary], pd.DataFrame]: (top configs, full summary)
     """
     try:
         # Handle enum objects - extract string value
