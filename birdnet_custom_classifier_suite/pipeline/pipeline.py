@@ -105,6 +105,13 @@ def build_training_cmd(cfg, exp_dir):
 
     # Sanitize training_args to match BirdNET-Analyzer CLI
     ta = dict(cfg.get("training_args", {}) or {})
+    
+    # Remove inference-only parameters that don't apply to training
+    inference_only_params = {"sensitivity"}
+    for param in inference_only_params:
+        if param in ta:
+            ta.pop(param)
+    
     # If an invalid upsampling_mode (e.g., 'none') sneaks in from older specs, drop it.
     allowed_modes = {"repeat", "linear", "mean", "smote"}
     mode = ta.get("upsampling_mode")
@@ -145,6 +152,7 @@ def main():
     ap.add_argument("--base-config", type=Path, default=None, help="Path to base.yaml; if omitted and --override-config is provided, inferred as <override-config>/../base.yaml")
     ap.add_argument("--override-config", type=Path)
     ap.add_argument("--skip-training", action="store_true", help="Skip training and reuse existing model/")
+    ap.add_argument("--cpu-only-training", action="store_true", help="Train on CPU only (workaround for GPU memory issues)")
     ap.add_argument("--verbose", action="store_true")
     args = ap.parse_args()
 
@@ -190,8 +198,26 @@ def main():
     else:
         print("\n=== STEP 2: Training model ===")
         cmd = build_training_cmd(cfg, exp_dir)
+        
+        # Set TensorFlow GPU environment variables for subprocess
+        import os
+        train_env = os.environ.copy()
+        
+        if args.cpu_only_training:
+            print("  [CPU-only mode] Training will use CPU only (GPU will still be used for inference)")
+            train_env['CUDA_VISIBLE_DEVICES'] = '-1'  # Force CPU-only for training
+        else:
+            train_env.update({
+                'TF_FORCE_GPU_ALLOW_GROWTH': 'true',
+                'TF_GPU_THREAD_MODE': 'gpu_private',
+                'TF_GPU_THREAD_COUNT': '1',
+                'TF_CPP_MIN_LOG_LEVEL': '0',
+                'MALLOC_MMAP_THRESHOLD_': '131072',  # Fixes tcache double-free
+                'MALLOC_TRIM_THRESHOLD_': '131072',
+            })
+        
         print("Running training:", " ".join(cmd))
-        subprocess.run(cmd, check=True)
+        subprocess.run(cmd, check=True, env=train_env)
 
     # Step 3: Inference
     for split in ["test_iid", "test_ood"]:

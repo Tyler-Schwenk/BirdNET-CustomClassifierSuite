@@ -27,8 +27,10 @@ There is no dependency on a global `config/base.yaml` at runtime. The sweep’s 
 - Training (top-level `training` section)
   - `epochs` → `training.epochs`
   - `batch_size` → `training.batch_size` and `inference.batch_size`
-- Audio parameters (mirrored)
+- Audio parameters (mirrored to both training and analysis)
   - `fmin`, `fmax`, `overlap` → `training_args.{fmin,fmax,overlap}` and `analyzer_args.{fmin,fmax,overlap}`
+- Analyzer parameters (go into `analyzer_args`)
+  - `sensitivity` → `analyzer_args.sensitivity` (controls BirdNET detection sensitivity during inference)
 - Training arguments (go into `training_args`)
   - `learning_rate`, `dropout`, `hidden_units`, `mixup`, `label_smoothing`
   - Focal loss flags use hyphenated keys to match analyzer CLI:
@@ -53,8 +55,9 @@ Each axis combination becomes one experiment config. The generator writes config
   - `quality`: from the `quality` axis if present; otherwise the base’s default
 - `training_args` (fully resolved)
   - Start with `base.yaml.training_args`
-  - Overlay any axis-provided keys: `learning_rate`, `dropout`, `hidden_units`, `upsampling_mode`, `upsampling_ratio`, etc.
-
+  - Overlay any axis-provided keys: `learning_rate`, `dropout`, `hidden_units`, `upsampling_mode`, `upsampling_ratio`, etc.- `analyzer_args` (fully resolved)
+  - Start with `base.yaml.analyzer_args`
+  - Overlay `sensitivity` if present in axis (controls detection threshold during inference)
 This results in fully resolved `training_args` per experiment config (not a minimal diff), which makes each config self-contained for inspection and debugging.
 
 ## Example

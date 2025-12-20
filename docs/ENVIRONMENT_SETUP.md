@@ -1,5 +1,11 @@
 # Environment Setup Instructions
 
+## GPU Support on Windows
+
+**⚠️ Important:** TensorFlow 2.15.1 does NOT support GPU on native Windows. The Windows package (`tensorflow-intel`) is CPU-only.
+
+**For GPU acceleration on Windows, use WSL2.** See [WSL2_GPU_SETUP.md](WSL2_GPU_SETUP.md) for complete instructions.
+
 ## Current Working Configuration (Tested on Python 3.10.0)
 
 This project has a dependency conflict between TensorFlow 2.15.1 (requires Python 3.10) and BirdNET-Analyzer 2.1.1 (requires Python >=3.11). The current working solution uses **Python 3.10** and imports BirdNET modules directly without installing the package.

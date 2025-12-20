@@ -300,6 +300,94 @@ def metric_controls(state: UIState, df: Optional[pd.DataFrame] = None, container
                         default=state.sweep_filter or []
                     )
                     state.sweep_filter = selected if selected else None
+            
+            # Hyperparameter filters
+            st.markdown("---")
+            st.write("Hyperparameter Filters")
+            
+            # Dropout
+            dropout_col = _find_col(cols, ['training_args.dropout', 'training.dropout', 'dropout'])
+            if dropout_col:
+                dropout_vals = sorted(df[dropout_col].dropna().unique().tolist())
+                if dropout_vals:
+                    selected = st.multiselect(
+                        f"Dropout ({dropout_col})",
+                        options=dropout_vals,
+                        default=state.dropout_filter or []
+                    )
+                    state.dropout_filter = selected if selected else None
+            
+            # Learning Rate
+            lr_col = _find_col(cols, ['training_args.learning_rate', 'training.learning_rate', 'learning_rate'])
+            if lr_col:
+                lr_vals = sorted(df[lr_col].dropna().unique().tolist())
+                if lr_vals:
+                    selected = st.multiselect(
+                        f"Learning Rate ({lr_col})",
+                        options=lr_vals,
+                        default=state.learning_rate_filter or []
+                    )
+                    state.learning_rate_filter = selected if selected else None
+            
+            # Batch Size
+            batch_col = _find_col(cols, ['training.batch_size', 'training_args.batch_size', 'batch_size'])
+            if batch_col:
+                batch_vals = sorted(df[batch_col].dropna().unique().tolist())
+                if batch_vals:
+                    selected = st.multiselect(
+                        f"Batch Size ({batch_col})",
+                        options=batch_vals,
+                        default=state.batch_size_filter or []
+                    )
+                    state.batch_size_filter = selected if selected else None
+            
+            # Mixup
+            mixup_col = _find_col(cols, ['training_args.mixup', 'training.mixup', 'mixup'])
+            if mixup_col:
+                mixup_vals = sorted(df[mixup_col].dropna().unique().tolist())
+                if mixup_vals:
+                    selected = st.multiselect(
+                        f"Mixup ({mixup_col})",
+                        options=mixup_vals,
+                        default=state.mixup_filter or []
+                    )
+                    state.mixup_filter = selected if selected else None
+            
+            # Label Smoothing
+            ls_col = _find_col(cols, ['training_args.label_smoothing', 'training.label_smoothing', 'label_smoothing', 'training_args.label-smoothing'])
+            if ls_col:
+                ls_vals = sorted(df[ls_col].dropna().unique().tolist())
+                if ls_vals:
+                    selected = st.multiselect(
+                        f"Label Smoothing ({ls_col})",
+                        options=ls_vals,
+                        default=state.label_smoothing_filter or []
+                    )
+                    state.label_smoothing_filter = selected if selected else None
+            
+            # Focal Loss
+            focal_col = _find_col(cols, ['training_args.focal-loss', 'training_args.focal_loss', 'training.focal_loss', 'focal_loss'])
+            if focal_col:
+                focal_vals = sorted(df[focal_col].dropna().unique().tolist())
+                if focal_vals:
+                    selected = st.multiselect(
+                        f"Focal Loss ({focal_col})",
+                        options=focal_vals,
+                        default=state.focal_loss_filter or []
+                    )
+                    state.focal_loss_filter = selected if selected else None
+            
+            # Upsampling Ratio
+            upsample_col = _find_col(cols, ['training_args.upsampling_ratio', 'training.upsampling.ratio', 'upsampling_ratio'])
+            if upsample_col:
+                upsample_vals = sorted(df[upsample_col].dropna().unique().tolist())
+                if upsample_vals:
+                    selected = st.multiselect(
+                        f"Upsampling Ratio ({upsample_col})",
+                        options=upsample_vals,
+                        default=state.upsampling_ratio_filter or []
+                    )
+                    state.upsampling_ratio_filter = selected if selected else None
 
 
 def leaderboard(summaries: List[ConfigSummary],
@@ -367,6 +455,8 @@ def leaderboard(summaries: List[ConfigSummary],
         show_negative_subsets = st.checkbox("Negative Subsets", value=False, key='lb_negative_subsets')
     with cols_ctrl2[1]:
         show_call_type = st.checkbox("Call Type", value=False, key='lb_call_type')
+    with cols_ctrl2[2]:
+        show_sensitivity = st.checkbox("Sensitivity", value=False, key='lb_sensitivity')
 
     # Helper to format config values nicely
     def format_config_value(val):
@@ -507,6 +597,10 @@ def leaderboard(summaries: List[ConfigSummary],
                   summary.config_values.get('filters.call_type',
                   summary.config_values.get('call_type')))
             row["Call Type"] = format_config_value(val)
+        if show_sensitivity:
+            val = summary.config_values.get('analyzer_args.sensitivity',
+                  summary.config_values.get('sensitivity'))
+            row["Sensitivity"] = format_config_value(val)
         
         for name, metric in summary.metrics.items():
             short_name = name.replace("metrics.", "").replace(".best_f1", "")
@@ -566,6 +660,8 @@ def leaderboard(summaries: List[ConfigSummary],
             config_column_names.append('Negative Subsets')
         if show_call_type:
             config_column_names.append('Call Type')
+        if show_sensitivity:
+            config_column_names.append('Sensitivity')
 
         # Identify metric columns by those not Signature/Experiments/Config columns
         metric_cols = [c for c in df.columns if c not in (['Signature', 'Experiments'] + config_column_names)]
@@ -632,6 +728,8 @@ def leaderboard(summaries: List[ConfigSummary],
             gb.configure_column('Batch Size', minWidth=90, width=110)
         if show_call_type and 'Call Type' in df_display.columns:
             gb.configure_column('Call Type', minWidth=100, width=130)
+        if show_sensitivity and 'Sensitivity' in df_display.columns:
+            gb.configure_column('Sensitivity', minWidth=90, width=110)
 
         # Add formatted mean columns and hidden std columns
         for mc in metric_cols:

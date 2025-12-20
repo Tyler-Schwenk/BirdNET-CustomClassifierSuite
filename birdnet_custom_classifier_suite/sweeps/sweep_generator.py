@@ -120,8 +120,8 @@ def generate_sweep(stage:int, out_dir:str, axes:dict, base_params:dict, prefix:s
         resolved_ta = deepcopy(base_cfg.get("training_args", {}))
 
         # Overlay axis overrides that belong to training_args
-        # Exclude non-TA keys handled separately (training_package and training params)
-        non_ta = {"seed", "quality", "balance", "batch_size", "positive_subsets", "negative_subsets", "call_type", "include_negatives", "use_validation"}
+        # Exclude non-TA keys handled separately (training_package, training params, and analyzer_args params)
+        non_ta = {"seed", "quality", "balance", "batch_size", "positive_subsets", "negative_subsets", "call_type", "include_negatives", "use_validation", "sensitivity"}
         for k, v in combo.items():
             if k in non_ta:
                 continue
@@ -148,6 +148,12 @@ def generate_sweep(stage:int, out_dir:str, axes:dict, base_params:dict, prefix:s
         if "negative_subsets" in combo:
             training_package["negative_subsets"] = combo["negative_subsets"]
 
+        # Build analyzer_args with audio params and sensitivity
+        resolved_aa = deepcopy(base_cfg.get("analyzer_args", {}))
+        # Overlay sensitivity from axis if present
+        if "sensitivity" in combo:
+            resolved_aa["sensitivity"] = combo["sensitivity"]
+
         cfg = {
             "experiment": {"name": exp_name, "seed": combo.get("seed", 123)},
             "training": {
@@ -158,6 +164,7 @@ def generate_sweep(stage:int, out_dir:str, axes:dict, base_params:dict, prefix:s
             "inference": {"batch_size": bs},
             "training_package": training_package,
             "training_args": resolved_ta,
+            "analyzer_args": resolved_aa,
         }
         path = root / f"{exp_name}.yaml"
         with open(path, "w") as f:

@@ -77,13 +77,22 @@ class UIState:
 
     # Analysis settings
     metric_prefix: str = MetricGroup.OOD_BEST_F1
-    top_n: int = 10
+    top_n: int = 0  # 0 = show all results
     precision_floor: Optional[float] = None
 
     # Optional filters (values selected by the user)
     quality_filter: Optional[List] = None
     balance_filter: Optional[List] = None
     sweep_filter: Optional[List] = None
+    
+    # Hyperparameter filters
+    dropout_filter: Optional[List] = None
+    learning_rate_filter: Optional[List] = None
+    batch_size_filter: Optional[List] = None
+    mixup_filter: Optional[List] = None
+    label_smoothing_filter: Optional[List] = None
+    focal_loss_filter: Optional[List] = None
+    upsampling_ratio_filter: Optional[List] = None
 
     # Selected UI items
     selected_signature: Optional[str] = None

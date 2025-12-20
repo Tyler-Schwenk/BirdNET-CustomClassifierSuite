@@ -203,3 +203,20 @@ top = rank.combined_rank(
     stability_weight=0.2,          # 20% weight on stability
 ).head(10)
 ```
+## Parameter Placement: training_args vs analyzer_args
+
+**Key principle:** Training parameters go in `training_args`, inference parameters go in `analyzer_args`.
+
+### training_args (used during model training)
+- `learning_rate`, `dropout`, `hidden_units` - Model architecture/optimization
+- `mixup`, `label_smoothing`, `focal-loss` - Training augmentation/loss
+- `upsampling_mode`, `upsampling_ratio` - Class balancing
+- `fmin`, `fmax`, `overlap` - Audio preprocessing (mirrored to analyzer_args)
+
+### analyzer_args (used during inference/analysis)
+- `sensitivity` - BirdNET detection threshold (0.5-1.5, default 1.0)
+- `min_conf` - Minimum confidence for predictions (default 0.0 for evaluation)
+- `fmin`, `fmax`, `overlap` - Audio preprocessing (must match training)
+
+**In sweep specs:** `sensitivity` axis → `analyzer_args.sensitivity` in generated configs
+**Pipeline:** Training ignores `sensitivity`, inference uses it from `analyzer_args`

@@ -1,0 +1,21 @@
+NVIDIA T1200 Laptop GPU with 4GB of memory and CUDA 12.8 support
+
+(.venv) PS C:\Users\tyler\important\projects\Frog\scripts\BirdNET_CustomClassifierSuite> nvidia-smi
+Fri Dec 19 10:53:40 2025       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 573.57                 Driver Version: 573.57         CUDA Version: 12.8     |
+|-----------------------------------------+------------------------+----------------------+
+| GPU  Name                  Driver-Model | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA T1200 Laptop GPU      WDDM  |   00000000:01:00.0 Off |                  N/A |
+| N/A   48C    P8              1W /   35W |       0MiB /   4096MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|

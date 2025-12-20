@@ -143,6 +143,35 @@ def main():
                             df_to_use['__stage_temp'] = df_to_use['experiment.name'].apply(extract_stage)
                             df_to_use = df_to_use[df_to_use['__stage_temp'].isin(state.sweep_filter)]
                             df_to_use = df_to_use.drop(columns=['__stage_temp'])
+                        
+                        # Hyperparameter filters
+                        dropout_col = _find_col(cols, ['training_args.dropout', 'training.dropout', 'dropout'])
+                        if dropout_col and hasattr(state, 'dropout_filter') and state.dropout_filter:
+                            df_to_use = df_to_use[df_to_use[dropout_col].isin(state.dropout_filter)]
+                        
+                        lr_col = _find_col(cols, ['training_args.learning_rate', 'training.learning_rate', 'learning_rate'])
+                        if lr_col and hasattr(state, 'learning_rate_filter') and state.learning_rate_filter:
+                            df_to_use = df_to_use[df_to_use[lr_col].isin(state.learning_rate_filter)]
+                        
+                        batch_col = _find_col(cols, ['training.batch_size', 'training_args.batch_size', 'batch_size'])
+                        if batch_col and hasattr(state, 'batch_size_filter') and state.batch_size_filter:
+                            df_to_use = df_to_use[df_to_use[batch_col].isin(state.batch_size_filter)]
+                        
+                        mixup_col = _find_col(cols, ['training_args.mixup', 'training.mixup', 'mixup'])
+                        if mixup_col and hasattr(state, 'mixup_filter') and state.mixup_filter:
+                            df_to_use = df_to_use[df_to_use[mixup_col].isin(state.mixup_filter)]
+                        
+                        ls_col = _find_col(cols, ['training_args.label_smoothing', 'training.label_smoothing', 'label_smoothing', 'training_args.label-smoothing'])
+                        if ls_col and hasattr(state, 'label_smoothing_filter') and state.label_smoothing_filter:
+                            df_to_use = df_to_use[df_to_use[ls_col].isin(state.label_smoothing_filter)]
+                        
+                        focal_col = _find_col(cols, ['training_args.focal-loss', 'training_args.focal_loss', 'training.focal_loss', 'focal_loss'])
+                        if focal_col and hasattr(state, 'focal_loss_filter') and state.focal_loss_filter:
+                            df_to_use = df_to_use[df_to_use[focal_col].isin(state.focal_loss_filter)]
+                        
+                        upsample_col = _find_col(cols, ['training_args.upsampling_ratio', 'training.upsampling.ratio', 'upsampling_ratio'])
+                        if upsample_col and hasattr(state, 'upsampling_ratio_filter') and state.upsampling_ratio_filter:
+                            df_to_use = df_to_use[df_to_use[upsample_col].isin(state.upsampling_ratio_filter)]
 
                     if df_to_use is None or df_to_use.empty:
                         st.warning("No rows after applying filters; adjust filters and try again.")

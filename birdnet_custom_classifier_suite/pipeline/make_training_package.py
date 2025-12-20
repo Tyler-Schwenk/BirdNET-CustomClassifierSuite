@@ -4,10 +4,11 @@ Build a BirdNET-style training package from split folders + manifest.
 - Uses config (YAML/JSON) for parameters.
 - Supports relative paths: manifest entries resolved against audio_root.
 - Deterministic, logged, and reproducible.
+- Cross-platform: works on Windows and WSL2
 """
 
 from __future__ import annotations
-import argparse, json, logging, random, shutil, sys
+import argparse, json, logging, random, shutil, sys, os, re
 from pathlib import Path
 from typing import List, Optional, Dict, Any, Tuple
 import pandas as pd
@@ -17,6 +18,53 @@ import getpass, socket, subprocess
 
 CLASS_POS = "RADR"
 CLASS_NEG = "Negative"
+
+
+# ---------------- Cross-platform path utilities ----------------
+def is_wsl() -> bool:
+    """Detect if running in WSL2."""
+    try:
+        with open('/proc/version', 'r') as f:
+            return 'microsoft' in f.read().lower()
+    except:
+        return False
+
+
+def windows_to_wsl_path(win_path: str) -> str:
+    """
+    Convert Windows path to WSL2 path.
+    D:\\folder\\file.wav -> /mnt/d/folder/file.wav
+    C:\\Users\\... -> /mnt/c/Users/...
+    """
+    # Match drive letter pattern: D:\... or D:/...
+    match = re.match(r'^([A-Za-z]):[/\\](.*)$', win_path)
+    if match:
+        drive = match.group(1).lower()
+        rest = match.group(2).replace('\\', '/')
+        return f'/mnt/{drive}/{rest}'
+    return win_path
+
+
+def normalize_path_for_platform(path_str: str) -> str:
+    """
+    Convert path to appropriate format for current platform.
+    - In WSL2: converts Windows paths to /mnt/x/ format and normalizes backslashes
+    - In Windows: leaves paths as-is
+    """
+    path_str = str(path_str).strip()
+    if not path_str:
+        return ""
+    
+    if is_wsl():
+        # Running in WSL2 - convert Windows paths
+        path_str = windows_to_wsl_path(path_str)
+        # Also normalize any remaining backslashes to forward slashes
+        # This handles relative paths like "splits\train\positive\file.wav"
+        path_str = path_str.replace("\\", "/")
+        return path_str
+    else:
+        # Running on Windows - use as-is
+        return path_str
 
 
 # ---------------- Config utils ----------------
@@ -60,11 +108,20 @@ def load_manifest(path: Path, audio_root: Path) -> pd.DataFrame:
         df[col] = df[col].astype(str)
 
     def resolve_path(p: str) -> str:
+        """Resolve path with cross-platform support for Windows and WSL2."""
         p = str(p).strip()
         if not p:
             return ""
+        
+        # First normalize for current platform (Windows -> WSL2 if needed)
+        p = normalize_path_for_platform(p)
+        
+        # Then resolve relative paths against audio_root
         p = Path(p)
-        return str(p if p.is_absolute() else (audio_root / p).resolve())
+        if p.is_absolute():
+            return str(p)
+        else:
+            return str((audio_root / p).resolve())
 
     df["resolved_path"] = df["new_full_path"].apply(resolve_path)
     return df
@@ -166,6 +223,14 @@ def filter_rows(df: pd.DataFrame, args: dict, audio_root: Path) -> Tuple[pd.Data
     # ===== STEP 1: Filter manifest-based files =====
     present = df[df["split"].str.lower().isin([s.lower() for s in args.get("splits", ["train"])])].copy()
     logging.info(f"Rows after split filter: {len(present)}")
+
+    # Debug: Show sample of resolved paths
+    if len(present) > 0:
+        sample_paths = present["resolved_path"].head(3).tolist()
+        logging.info(f"Sample resolved paths: {sample_paths}")
+        for p in sample_paths[:1]:  # Check just the first one
+            exists = Path(p).exists()
+            logging.info(f"  Path exists check for '{p}': {exists}")
 
     present["ok_path"] = present["resolved_path"].apply(lambda p: Path(p).exists())
     present = present[present["ok_path"]].copy()
