@@ -6,6 +6,7 @@ import yaml
 import json
 import matplotlib.pyplot as plt
 from datetime import datetime
+from pathlib import Path
 from sklearn.metrics import (
     confusion_matrix, roc_curve, auc,
     precision_recall_curve, average_precision_score
@@ -163,11 +164,70 @@ def make_experiment_summary(exp_dir: str):
         json.dump(summary, f, indent=2)
     print(f"Saved {outpath}")
 
-def load_results(folder):
+def load_results(folder, split_name=None):
+    """
+    Load BirdNET predictions and merge with full file list from split directory.
+    
+    This ensures ALL files are evaluated, even if BirdNET didn't output predictions for them.
+    Files missing from BirdNET output are assigned score=0.0.
+    
+    Args:
+        folder: Path to inference folder containing BirdNET_CombinedTable.csv
+        split_name: Name of split (e.g., 'test_ood', 'test_iid') to load full file list
+    
+    Returns:
+        DataFrame with columns: File, Scientific name, Confidence (and other BirdNET columns)
+        Includes ALL files from split directory, with synthetic rows for missing files
+    """
     fpath = os.path.join(folder, "BirdNET_CombinedTable.csv")
-    if not os.path.exists(fpath):
-        raise FileNotFoundError(f"No CombinedTable found at {fpath}")
-    return pd.read_csv(fpath)
+    
+    # Load BirdNET predictions (may be incomplete if model didn't detect anything in some files)
+    if os.path.exists(fpath):
+        birdnet_df = pd.read_csv(fpath)
+        files_in_output = set(birdnet_df["File"].unique())
+    else:
+        birdnet_df = pd.DataFrame(columns=["File", "Scientific name", "Confidence"])
+        files_in_output = set()
+    
+    # If split_name provided, get full file list from directory to catch missing files
+    if split_name:
+        audio_root = Path("AudioData/splits") / split_name
+        all_files = []
+        
+        for subdir in ["positive", "negative"]:
+            subdir_path = audio_root / subdir
+            if subdir_path.exists():
+                for wav_file in subdir_path.glob("*.wav"):
+                    # Use backslashes to match BirdNET output format on Windows
+                    file_path = str(audio_root / subdir / wav_file.name).replace("/", "\\")
+                    all_files.append(file_path)
+        
+        # Find files that BirdNET didn't analyze (no predictions output)
+        missing_files = set(all_files) - files_in_output
+        
+        if missing_files:
+            print(f"  WARNING: {len(missing_files)} files missing from BirdNET output (will be scored as 0.0)")
+            print(f"  This typically means the model detected no species above confidence threshold in these files.")
+            
+            # Add synthetic rows for missing files with Negative class and 0.0 confidence
+            # This ensures they're counted as True Negatives (if actually negative) or False Negatives (if positive)
+            missing_rows = []
+            for file_path in missing_files:
+                missing_rows.append({
+                    "File": file_path,
+                    "Scientific name": "Negative",  # Placeholder - actual label parsed from filename
+                    "Confidence": 0.0,
+                    "Start (s)": 0.0,
+                    "End (s)": 3.0
+                })
+            
+            if missing_rows:
+                missing_df = pd.DataFrame(missing_rows)
+                birdnet_df = pd.concat([birdnet_df, missing_df], ignore_index=True)
+        else:
+            print(f"  ✓ All {len(all_files)} files found in BirdNET output")
+    
+    return birdnet_df
 
 def get_labels_from_path(path: str):
     fname = os.path.basename(path).lower()
@@ -294,7 +354,8 @@ def run_evaluation(exp_dir: str):
     all_metrics, all_groups = [], []
     for split in ["test_iid", "test_ood"]:
         folder = os.path.join(inf_dir, split)
-        df = load_results(folder)
+        print(f"\nEvaluating {split}...")
+        df = load_results(folder, split_name=split)
         metrics_df, groups_df = evaluate(df, split, out_dir)
         all_metrics.append(metrics_df)
         all_groups.append(groups_df)

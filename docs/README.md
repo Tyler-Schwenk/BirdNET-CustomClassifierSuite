@@ -4,6 +4,14 @@
 
 These docs provide context for understanding and extending the codebase.
 
+### 🚀 Start Here
+- **[PIPELINE_OVERVIEW.md](PIPELINE_OVERVIEW.md)** - **Complete pipeline walkthrough** — training, inference, evaluation, sweeps
+- **[DATA_SPLITS.md](DATA_SPLITS.md)** - **Train/val/test split breakdown** — file counts, sources, OOD vs IID
+- **[EVALUATION_PIPELINE.md](EVALUATION_PIPELINE.md)** - **How evaluation works** — scoring logic, metrics, bug fixes
+
+### 📊 Evaluation & Results
+- **[RE_EVALUATION_GUIDE.md](RE_EVALUATION_GUIDE.md)** - **How to re-evaluate experiments** after the 2025-12-21 bug fix
+
 ### Architecture & Design
 - **[UI_ARCHITECTURE.md](UI_ARCHITECTURE.md)** - Component structure, state management, data flow, and patterns
 - **[DATA_MODEL.md](DATA_MODEL.md)** - Data structures (UIState, ConfigSummary), DataFrame schemas, key computations
