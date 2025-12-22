@@ -1,0 +1,330 @@
+============================================================
+POSITIVE AUDIO FILES COUNT BY RECORDER AND DATE
+============================================================
+
+
+Moth01:
+  2025-04-03:   10 files
+  2025-04-04:   31 files
+  2025-04-05:    7 files
+  2025-04-06:    4 files
+  2025-04-07:    7 files
+  2025-04-08:    1 files
+  2025-04-09:    5 files
+  2025-04-10:    1 files
+  2025-04-11:    3 files
+  Moth01 Total: 69 files
+------------------------------------------------------------
+
+Moth02:
+  2025-04-04:    1 files
+  2025-04-07:    2 files
+  2025-04-10:    2 files
+  Moth02 Total: 5 files
+------------------------------------------------------------
+
+Moth03:
+  2025-02-21:    4 files
+  2025-02-22:   12 files
+  2025-02-23:   14 files
+  2025-02-25:    9 files
+  2025-03-08:   32 files
+  2025-03-09:    3 files
+  2025-03-11:    4 files
+  2025-04-11:    4 files
+  2025-04-12:    8 files
+  2025-04-13:    8 files
+  2025-04-14:   10 files
+  Moth03 Total: 108 files
+------------------------------------------------------------
+
+Moth04:
+  2025-02-20:    1 files
+  2025-02-21:   17 files
+  2025-02-22:   28 files
+  2025-02-23:   80 files
+  2025-02-24:    3 files
+  2025-02-25:    5 files
+  2025-03-06:    1 files
+  2025-03-08:   53 files
+  2025-03-09:   12 files
+  2025-03-10:    1 files
+  2025-03-11:    4 files
+  2025-04-06:    1 files
+  Moth04 Total: 206 files
+------------------------------------------------------------
+
+Moth06:
+  2025-02-19:   12 files
+  2025-02-23:    4 files
+  2025-02-25:    3 files
+  2025-03-08:    4 files
+  2025-03-09:    1 files
+  2025-04-04:   74 files
+  2025-04-05:   18 files
+  2025-04-06:   26 files
+  2025-04-07:    4 files
+  Moth06 Total: 146 files
+------------------------------------------------------------
+
+Moth08:
+  2025-02-14:    2 files
+  2025-02-15:   49 files
+  2025-02-16:   49 files
+  2025-02-17:   49 files
+  2025-02-18:  114 files
+  2025-02-27:  415 files
+  2025-02-28:  254 files
+  2025-03-01:  382 files
+  2025-03-02:  376 files
+  2025-03-03:  286 files
+  2025-03-04:  305 files
+  2025-03-05:  270 files
+  2025-03-14:   19 files
+  2025-03-15:  111 files
+  2025-03-16:  152 files
+  2025-03-17:   93 files
+  2025-03-18:  171 files
+  2025-03-19:  277 files
+  2025-03-20:  272 files
+  2025-03-21:   40 files
+  2025-03-27:   32 files
+  Moth08 Total: 3718 files
+------------------------------------------------------------
+
+Moth11:
+  2025-02-15:    5 files
+  2025-02-16:   17 files
+  2025-02-17:   11 files
+  2025-02-18:   10 files
+  2025-02-27:   16 files
+  2025-02-28:   28 files
+  2025-03-01:    4 files
+  2025-03-02:    2 files
+  2025-03-03:   32 files
+  2025-03-04:    1 files
+  2025-03-05:   11 files
+  2025-03-14:   52 files
+  2025-03-15:    8 files
+  2025-03-16:   33 files
+  2025-03-17:   20 files
+  2025-03-18:   55 files
+  2025-03-19:  119 files
+  2025-03-20:   79 files
+  2025-03-21:   42 files
+  2025-03-27:  126 files
+  2025-03-28:   51 files
+  2025-03-29:    4 files
+  2025-03-30:   15 files
+  2025-03-31:    7 files
+  2025-04-02:    1 files
+  Moth11 Total: 749 files
+------------------------------------------------------------
+
+Moth12:
+  2025-02-13:    1 files
+  2025-02-14:    7 files
+  2025-02-15:   37 files
+  2025-02-16:   47 files
+  2025-02-17:   70 files
+  2025-02-18:   93 files
+  2025-02-27:   67 files
+  2025-02-28:   61 files
+  2025-03-01:   31 files
+  2025-03-02:    5 files
+  2025-03-03:   40 files
+  2025-03-04:    3 files
+  2025-03-05:    4 files
+  2025-03-14:   11 files
+  2025-03-15:    5 files
+  2025-03-16:   25 files
+  2025-03-17:   33 files
+  2025-03-18:   57 files
+  2025-03-19:  115 files
+  2025-03-20:   52 files
+  2025-03-21:   23 files
+  2025-03-27:   99 files
+  2025-03-28:   37 files
+  2025-03-29:    4 files
+  2025-03-30:    5 files
+  2025-03-31:    5 files
+  2025-04-02:    5 files
+  Moth12 Total: 942 files
+------------------------------------------------------------
+
+Moth13:
+  2021-01-20:  211 files
+  2021-02-05:   77 files
+  2021-12-13:   51 files
+  2021-12-14:   70 files
+  2021-12-15:   26 files
+  2021-12-16:   33 files
+  2021-12-20:   34 files
+  2021-12-21:    9 files
+  2021-12-22:   47 files
+  2021-12-23:    5 files
+  2021-12-24:   44 files
+  2021-12-25:    8 files
+  2021-12-26:   11 files
+  2021-12-27:   25 files
+  2021-12-28:   33 files
+  2022-01-01:   34 files
+  2022-01-02:   57 files
+  2022-01-04:    6 files
+  2022-01-06:  121 files
+  2022-01-12:  372 files
+  2022-01-13:   25 files
+  2022-01-14:  645 files
+  Moth13 Total: 1944 files
+------------------------------------------------------------
+
+============================================================
+SUMMARY STATISTICS
+============================================================
+Total positive files: 7887
+Total recorders: 9
+Total date-recorder combinations: 139
+
+--- Central Tendency ---
+Mean (average): 56.74 files/day
+Median: 20.0 files/day
+Standard deviation: 98.71
+
+--- Range & Percentiles ---
+Min: 1 files/day
+25th percentile: 5.0 files/day
+75th percentile: 53.0 files/day
+Max: 645 files/day
+Interquartile Range (IQR): 48.0
+
+--- Distribution (Days by File Count) ---
+      1-10 files:  55 days ( 39.6%)
+     11-25 files:  19 days ( 13.7%)
+     26-50 files:  26 days ( 18.7%)
+    51-100 files:  19 days ( 13.7%)
+   101-200 files:   8 days (  5.8%)
+   201-500 files:  11 days (  7.9%)
+      500+ files:   1 days (  0.7%)
+
+--- Typical vs Chorus Nights ---
+Outlier threshold (Q75 + 1.5*IQR): 125.0 files
+Typical nights (<= threshold): 124 days
+  Mean: 27.2 files/day
+  Median: 13.0 files/day
+Chorus nights (> threshold): 15 days
+  Mean: 300.9 files/day
+  Median: 277.0 files/day
+  Range: 126-645 files
+
+============================================================
+RECORDER TOTALS
+============================================================
+Moth01:   69 total positive files
+Moth02:    5 total positive files
+Moth03:  108 total positive files
+Moth04:  206 total positive files
+Moth06:  146 total positive files
+Moth08: 3718 total positive files
+Moth11:  749 total positive files
+Moth12:  942 total positive files
+Moth13: 1944 total positive files
+
+============================================================
+PER-RECORDER STATISTICS
+============================================================
+
+Moth01:
+  Recording days: 9
+  Total files: 69
+  Mean per day: 7.7
+  Median per day: 5.0
+  Range: 1-31 files/day
+
+Moth02:
+  Recording days: 3
+  Total files: 5
+  Mean per day: 1.7
+  Median per day: 2.0
+  Range: 1-2 files/day
+
+Moth03:
+  Recording days: 11
+  Total files: 108
+  Mean per day: 9.8
+  Median per day: 8.0
+  Range: 3-32 files/day
+
+Moth04:
+  Recording days: 12
+  Total files: 206
+  Mean per day: 17.2
+  Median per day: 4.5
+  Range: 1-80 files/day
+
+Moth06:
+  Recording days: 9
+  Total files: 146
+  Mean per day: 16.2
+  Median per day: 4.0
+  Range: 1-74 files/day
+
+Moth08:
+  Recording days: 21
+  Total files: 3718
+  Mean per day: 177.0
+  Median per day: 152.0
+  Range: 2-415 files/day
+
+Moth11:
+  Recording days: 25
+  Total files: 749
+  Mean per day: 30.0
+  Median per day: 16.0
+  Range: 1-126 files/day
+
+Moth12:
+  Recording days: 27
+  Total files: 942
+  Mean per day: 34.9
+  Median per day: 31.0
+  Range: 1-115 files/day
+
+Moth13:
+  Recording days: 22
+  Total files: 1944
+  Mean per day: 88.4
+  Median per day: 34.0
+  Range: 5-645 files/day
+
+============================================================
+MODEL CONFIDENCE IMPLICATIONS
+============================================================
+
+For day-level predictions (assuming file-level metrics):
+
+Typical night scenario (median 20 files):
+  - At 95% precision: expect ~1.0 false positives/night
+  - At 90% recall: expect to miss ~2.0 true calls/night
+  - At 90% F1: expect ~2.0 total errors/night
+
+Busy night scenario (75th percentile 53 files):
+  - At 95% precision: expect ~2.7 false positives/night
+  - At 90% recall: expect to miss ~5.3 true calls/night
+  - At 90% F1: expect ~5.3 total errors/night
+
+Chorus night scenario (max 645 files):
+  - At 95% precision: expect ~32.2 false positives/night
+  - At 90% recall: expect to miss ~64.5 true calls/night
+  - At 90% F1: expect ~64.5 total errors/night
+
+Note: Day-level confidence depends on whether you need:
+  - Detection: 'Was species present?' → High confidence even with 1 true positive
+  - Abundance: 'How many calls?' → Confidence scales with file counts
+
+Key Statistics:
+  - Total positive files: 7887
+  - Recording days: 139
+  - Median files/day: 20.0
+  - Mean files/day: 56.74
+  - Typical range (25th-75th): 5.0-53.0
+  - Max files in one day: 645

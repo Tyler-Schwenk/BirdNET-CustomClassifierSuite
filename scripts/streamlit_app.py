@@ -172,6 +172,64 @@ def main():
                         upsample_col = _find_col(cols, ['training_args.upsampling_ratio', 'training.upsampling.ratio', 'upsampling_ratio'])
                         if upsample_col and hasattr(state, 'upsampling_ratio_filter') and state.upsampling_ratio_filter:
                             df_to_use = df_to_use[df_to_use[upsample_col].isin(state.upsampling_ratio_filter)]
+                        
+                        hidden_col = _find_col(cols, ['training_args.hidden_units', 'training.hidden_units', 'hidden_units'])
+                        if hidden_col and hasattr(state, 'hidden_units_filter') and state.hidden_units_filter:
+                            df_to_use = df_to_use[df_to_use[hidden_col].isin(state.hidden_units_filter)]
+                        
+                        # Dataset-specific filters
+                        pos_subsets_col = _find_col(cols, ['dataset.filters.positive_subsets', 'filters.positive_subsets', 'positive_subsets'])
+                        if pos_subsets_col and hasattr(state, 'positive_subsets_filter') and state.positive_subsets_filter:
+                            # Filter rows where the list column contains any of the selected subsets
+                            import ast
+                            def contains_subset(val, targets):
+                                if pd.isna(val):
+                                    return False
+                                if isinstance(val, str) and val.startswith('['):
+                                    try:
+                                        parsed = ast.literal_eval(val)
+                                        if isinstance(parsed, list):
+                                            return any(s in parsed for s in targets)
+                                    except:
+                                        pass
+                                return False
+                            df_to_use = df_to_use[df_to_use[pos_subsets_col].apply(lambda x: contains_subset(x, state.positive_subsets_filter))]
+                        
+                        neg_subsets_col = _find_col(cols, ['dataset.filters.negative_subsets', 'filters.negative_subsets', 'negative_subsets'])
+                        if neg_subsets_col and hasattr(state, 'negative_subsets_filter') and state.negative_subsets_filter:
+                            import ast
+                            def contains_subset(val, targets):
+                                if pd.isna(val):
+                                    return False
+                                if isinstance(val, str) and val.startswith('['):
+                                    try:
+                                        parsed = ast.literal_eval(val)
+                                        if isinstance(parsed, list):
+                                            return any(s in parsed for s in targets)
+                                    except:
+                                        pass
+                                return False
+                            df_to_use = df_to_use[df_to_use[neg_subsets_col].apply(lambda x: contains_subset(x, state.negative_subsets_filter))]
+                        
+                        call_type_col = _find_col(cols, ['dataset.filters.call_type', 'filters.call_type', 'call_type'])
+                        if call_type_col and hasattr(state, 'call_type_filter') and state.call_type_filter:
+                            import ast
+                            def contains_type(val, targets):
+                                if pd.isna(val):
+                                    return False
+                                if isinstance(val, str) and val.startswith('['):
+                                    try:
+                                        parsed = ast.literal_eval(val)
+                                        if isinstance(parsed, list):
+                                            return any(t in parsed for t in targets)
+                                    except:
+                                        pass
+                                return False
+                            df_to_use = df_to_use[df_to_use[call_type_col].apply(lambda x: contains_type(x, state.call_type_filter))]
+                        
+                        sensitivity_col = _find_col(cols, ['analyzer_args.sensitivity', 'sensitivity'])
+                        if sensitivity_col and hasattr(state, 'sensitivity_filter') and state.sensitivity_filter:
+                            df_to_use = df_to_use[df_to_use[sensitivity_col].isin(state.sensitivity_filter)]
 
                     if df_to_use is None or df_to_use.empty:
                         st.warning("No rows after applying filters; adjust filters and try again.")

@@ -388,6 +388,103 @@ def metric_controls(state: UIState, df: Optional[pd.DataFrame] = None, container
                         default=state.upsampling_ratio_filter or []
                     )
                     state.upsampling_ratio_filter = selected if selected else None
+            
+            # Hidden Units
+            hidden_col = _find_col(cols, ['training_args.hidden_units', 'training.hidden_units', 'hidden_units'])
+            if hidden_col:
+                hidden_vals = sorted(df[hidden_col].dropna().unique().tolist())
+                if hidden_vals:
+                    selected = st.multiselect(
+                        f"Hidden Units ({hidden_col})",
+                        options=hidden_vals,
+                        default=getattr(state, 'hidden_units_filter', None) or []
+                    )
+                    state.hidden_units_filter = selected if selected else None
+            
+            # Dataset-specific filters
+            st.markdown("---")
+            st.write("Dataset Filters")
+            
+            # Positive Subsets
+            pos_subsets_col = _find_col(cols, ['dataset.filters.positive_subsets', 'filters.positive_subsets', 'positive_subsets'])
+            if pos_subsets_col:
+                # Handle list values - extract unique values from list columns
+                unique_subsets = set()
+                for val in df[pos_subsets_col].dropna():
+                    if isinstance(val, str) and val.startswith('['):
+                        try:
+                            import ast
+                            parsed = ast.literal_eval(val)
+                            if isinstance(parsed, list):
+                                unique_subsets.update(parsed)
+                        except:
+                            pass
+                if unique_subsets:
+                    subset_vals = sorted(list(unique_subsets))
+                    selected = st.multiselect(
+                        f"Positive Subsets ({pos_subsets_col})",
+                        options=subset_vals,
+                        default=getattr(state, 'positive_subsets_filter', None) or []
+                    )
+                    state.positive_subsets_filter = selected if selected else None
+            
+            # Negative Subsets
+            neg_subsets_col = _find_col(cols, ['dataset.filters.negative_subsets', 'filters.negative_subsets', 'negative_subsets'])
+            if neg_subsets_col:
+                # Handle list values
+                unique_subsets = set()
+                for val in df[neg_subsets_col].dropna():
+                    if isinstance(val, str) and val.startswith('['):
+                        try:
+                            import ast
+                            parsed = ast.literal_eval(val)
+                            if isinstance(parsed, list):
+                                unique_subsets.update(parsed)
+                        except:
+                            pass
+                if unique_subsets:
+                    subset_vals = sorted(list(unique_subsets))
+                    selected = st.multiselect(
+                        f"Negative Subsets ({neg_subsets_col})",
+                        options=subset_vals,
+                        default=getattr(state, 'negative_subsets_filter', None) or []
+                    )
+                    state.negative_subsets_filter = selected if selected else None
+            
+            # Call Type
+            call_type_col = _find_col(cols, ['dataset.filters.call_type', 'filters.call_type', 'call_type'])
+            if call_type_col:
+                # Handle list values
+                unique_types = set()
+                for val in df[call_type_col].dropna():
+                    if isinstance(val, str) and val.startswith('['):
+                        try:
+                            import ast
+                            parsed = ast.literal_eval(val)
+                            if isinstance(parsed, list):
+                                unique_types.update(parsed)
+                        except:
+                            pass
+                if unique_types:
+                    type_vals = sorted(list(unique_types))
+                    selected = st.multiselect(
+                        f"Call Type ({call_type_col})",
+                        options=type_vals,
+                        default=getattr(state, 'call_type_filter', None) or []
+                    )
+                    state.call_type_filter = selected if selected else None
+            
+            # Sensitivity
+            sensitivity_col = _find_col(cols, ['analyzer_args.sensitivity', 'sensitivity'])
+            if sensitivity_col:
+                sens_vals = sorted(df[sensitivity_col].dropna().unique().tolist())
+                if sens_vals:
+                    selected = st.multiselect(
+                        f"Sensitivity ({sensitivity_col})",
+                        options=sens_vals,
+                        default=getattr(state, 'sensitivity_filter', None) or []
+                    )
+                    state.sensitivity_filter = selected if selected else None
 
 
 def leaderboard(summaries: List[ConfigSummary],
