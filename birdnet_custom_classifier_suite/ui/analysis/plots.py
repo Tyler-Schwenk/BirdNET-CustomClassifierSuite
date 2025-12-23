@@ -6,6 +6,8 @@ import pandas as pd
 import numpy as np
 import streamlit as st
 import altair as alt
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 
 MetricChoice = Tuple[str, str]  # (label, column_name)

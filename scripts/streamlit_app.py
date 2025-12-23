@@ -189,7 +189,11 @@ def main():
                                     try:
                                         parsed = ast.literal_eval(val)
                                         if isinstance(parsed, list):
-                                            return any(s in parsed for s in targets)
+                                            # Check if filtering for "(none)" (empty lists)
+                                            if '(none)' in targets and not parsed:
+                                                return True
+                                            # Otherwise check for any matching subset
+                                            return any(s in parsed for s in targets if s != '(none)')
                                     except:
                                         pass
                                 return False
@@ -205,7 +209,11 @@ def main():
                                     try:
                                         parsed = ast.literal_eval(val)
                                         if isinstance(parsed, list):
-                                            return any(s in parsed for s in targets)
+                                            # Check if filtering for "(none)" (empty lists)
+                                            if '(none)' in targets and not parsed:
+                                                return True
+                                            # Otherwise check for any matching subset
+                                            return any(s in parsed for s in targets if s != '(none)')
                                     except:
                                         pass
                                 return False
@@ -269,7 +277,12 @@ def main():
                 # Charts based on current leaderboard table
                 if table_df is not None and not table_df.empty:
                     from birdnet_custom_classifier_suite.ui.analysis import plots as charts
+                    from birdnet_custom_classifier_suite.ui.analysis.plots_advanced import (
+                        advanced_plot_controls, render_advanced_plot
+                    )
+                    
                     with right_col:
+                        # Standard plotting
                         x_col, y_col, opts = charts.plot_controls(table_df, container=right_col)
                         if x_col and y_col:
                             charts.render_chart(
@@ -279,6 +292,11 @@ def main():
                                 debug=bool(opts.get("debug")),
                                 chart_type=str(opts.get("chart_type", "Auto")),
                             )
+                        
+                        # Advanced plotting
+                        adv_config = advanced_plot_controls(table_df, state.results_df, container=right_col)
+                        if adv_config:
+                            render_advanced_plot(table_df, state.results_df, adv_config, container=right_col)
 
                 selected_sig = st.session_state.get('selected_signature')
                 if selected_sig:

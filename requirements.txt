@@ -10,6 +10,7 @@ scikit-learn==1.7.2
 librosa==0.11.0
 soundfile==0.13.1
 matplotlib==3.10.7
+seaborn>=0.13.0
 
 # Keras bundled with TensorFlow 2.15 - do NOT install separately
 # keras is NOT needed as a separate package

@@ -410,17 +410,23 @@ def metric_controls(state: UIState, df: Optional[pd.DataFrame] = None, container
             if pos_subsets_col:
                 # Handle list values - extract unique values from list columns
                 unique_subsets = set()
+                has_empty = False
                 for val in df[pos_subsets_col].dropna():
                     if isinstance(val, str) and val.startswith('['):
                         try:
                             import ast
                             parsed = ast.literal_eval(val)
                             if isinstance(parsed, list):
-                                unique_subsets.update(parsed)
+                                if not parsed:  # Empty list
+                                    has_empty = True
+                                else:
+                                    unique_subsets.update(parsed)
                         except:
                             pass
-                if unique_subsets:
+                if unique_subsets or has_empty:
                     subset_vals = sorted(list(unique_subsets))
+                    if has_empty:
+                        subset_vals = ['(none)'] + subset_vals
                     selected = st.multiselect(
                         f"Positive Subsets ({pos_subsets_col})",
                         options=subset_vals,
@@ -433,17 +439,23 @@ def metric_controls(state: UIState, df: Optional[pd.DataFrame] = None, container
             if neg_subsets_col:
                 # Handle list values
                 unique_subsets = set()
+                has_empty = False
                 for val in df[neg_subsets_col].dropna():
                     if isinstance(val, str) and val.startswith('['):
                         try:
                             import ast
                             parsed = ast.literal_eval(val)
                             if isinstance(parsed, list):
-                                unique_subsets.update(parsed)
+                                if not parsed:  # Empty list
+                                    has_empty = True
+                                else:
+                                    unique_subsets.update(parsed)
                         except:
                             pass
-                if unique_subsets:
+                if unique_subsets or has_empty:
                     subset_vals = sorted(list(unique_subsets))
+                    if has_empty:
+                        subset_vals = ['(none)'] + subset_vals
                     selected = st.multiselect(
                         f"Negative Subsets ({neg_subsets_col})",
                         options=subset_vals,
