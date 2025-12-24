@@ -16,9 +16,9 @@ def main():
     
     # Find all stage17 experiments
     stage17_dirs = sorted([d for d in experiments_root.iterdir() 
-                          if d.is_dir() and d.name.startswith("stage17_")])
+                          if d.is_dir() and d.name.startswith("stage19_")])
     
-    print(f"Found {len(stage17_dirs)} stage17 experiments")
+    print(f"Found {len(stage17_dirs)} stage19 experiments")
     
     # Evaluate each one
     for i, exp_dir in enumerate(stage17_dirs, 1):

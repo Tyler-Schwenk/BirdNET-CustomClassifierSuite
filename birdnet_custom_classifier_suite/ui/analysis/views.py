@@ -566,6 +566,10 @@ def leaderboard(summaries: List[ConfigSummary],
         show_call_type = st.checkbox("Call Type", value=False, key='lb_call_type')
     with cols_ctrl2[2]:
         show_sensitivity = st.checkbox("Sensitivity", value=False, key='lb_sensitivity')
+    with cols_ctrl2[3]:
+        show_fmin = st.checkbox("fmin", value=False, key='lb_fmin')
+    with cols_ctrl2[4]:
+        show_fmax = st.checkbox("fmax", value=False, key='lb_fmax')
 
     # Helper to format config values nicely
     def format_config_value(val):
@@ -710,6 +714,16 @@ def leaderboard(summaries: List[ConfigSummary],
             val = summary.config_values.get('analyzer_args.sensitivity',
                   summary.config_values.get('sensitivity'))
             row["Sensitivity"] = format_config_value(val)
+        if show_fmin:
+            val = summary.config_values.get('training_args.fmin',
+                  summary.config_values.get('analyzer_args.fmin',
+                  summary.config_values.get('fmin')))
+            row["fmin"] = format_config_value(val)
+        if show_fmax:
+            val = summary.config_values.get('training_args.fmax',
+                  summary.config_values.get('analyzer_args.fmax',
+                  summary.config_values.get('fmax')))
+            row["fmax"] = format_config_value(val)
         
         for name, metric in summary.metrics.items():
             short_name = name.replace("metrics.", "").replace(".best_f1", "")

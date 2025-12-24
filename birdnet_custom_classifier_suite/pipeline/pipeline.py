@@ -170,11 +170,35 @@ def main():
     print(cfg)
 
     exp_dir = get_experiment_dir(cfg)
-    if exp_dir.exists() and not args.skip_training:
+    # Check if experiment already completed successfully
+    evaluation_summary = exp_dir / "evaluation" / "experiment_summary.json"
+    if evaluation_summary.exists() and not args.skip_training:
         raise FileExistsError(
-            f"Experiment directory already exists: {exp_dir}\n"
+            f"Experiment already completed: {exp_dir}\n"
+            f"Evaluation summary exists: {evaluation_summary}\n"
             f"Pick a new `experiment.name` or use --skip-training."
         )
+    
+    # If experiment directory exists but incomplete, clean up partial outputs
+    if exp_dir.exists() and not args.skip_training:
+        print(f"\n⚠️  Experiment directory exists but incomplete. Cleaning up partial outputs...")
+        # Remove model directory to force re-training
+        model_dir = exp_dir / "model"
+        if model_dir.exists():
+            print(f"  Removing old model directory: {model_dir}")
+            shutil.rmtree(model_dir)
+        # Remove inference directory to force re-inference
+        inference_dir = exp_dir / "inference"
+        if inference_dir.exists():
+            print(f"  Removing old inference directory: {inference_dir}")
+            shutil.rmtree(inference_dir)
+        # Remove evaluation directory (failed evaluation)
+        evaluation_dir = exp_dir / "evaluation"
+        if evaluation_dir.exists():
+            print(f"  Removing old evaluation directory: {evaluation_dir}")
+            shutil.rmtree(evaluation_dir)
+        print("  Cleanup complete. Will re-run from scratch.\n")
+    
     exp_dir.mkdir(parents=True, exist_ok=True)
     print(f"\nUsing experiment directory: {exp_dir.resolve()}")
 
@@ -232,11 +256,23 @@ def main():
 
     # Step 4: Evaluation
     print("\n=== STEP 4: Evaluation ===")
-    evaluate_results.run_evaluation(str(exp_dir))
+    try:
+        evaluate_results.run_evaluation(str(exp_dir))
+    except Exception as e:
+        print(f"ERROR: Evaluation failed: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
 
     # Step 5: Update master experiment index
     print("\n=== STEP 5: Updating master experiment index ===")
-    collect_experiments.collect_experiments("experiments", "results/all_experiments.csv")
+    try:
+        collect_experiments.collect_experiments("experiments", "results/all_experiments.csv")
+    except Exception as e:
+        print(f"ERROR: Failed to collect experiments: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
 
     print("\nPipeline complete!")
 

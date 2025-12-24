@@ -150,6 +150,10 @@ def generate_sweep(stage:int, out_dir:str, axes:dict, base_params:dict, prefix:s
 
         # Build analyzer_args with audio params and sensitivity
         resolved_aa = deepcopy(base_cfg.get("analyzer_args", {}))
+        # Overlay audio params from axes (must match training_args for fmin/fmax/overlap)
+        for k in ("fmin", "fmax", "overlap"):
+            if k in combo:
+                resolved_aa[k] = combo[k]
         # Overlay sensitivity from axis if present
         if "sensitivity" in combo:
             resolved_aa["sensitivity"] = combo["sensitivity"]

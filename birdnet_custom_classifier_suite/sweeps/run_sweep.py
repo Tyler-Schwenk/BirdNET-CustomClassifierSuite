@@ -40,14 +40,18 @@ def run_pipeline(config: Path, base_config: Path, verbose: bool = False) -> bool
 
     print(f"\n=== Running experiment: {config.name} ===")
     try:
-        subprocess.run(cmd, check=True)
+        # Use text=True to capture output in real-time, don't capture_output to show live
+        result = subprocess.run(cmd, check=True, text=True)
         print(f"Success: {config.name}")
         return True
     except subprocess.CalledProcessError as e:
-        print(f"Failed: {config.name} (exit code {e.returncode})")
+        print(f"\n❌ FAILED: {config.name} (exit code {e.returncode})")
+        print("=" * 80)
+        print("Pipeline failed. Check output above for error details.")
+        print("=" * 80)
         return False
     except Exception as e:
-        print(f"Failed: {config.name} ({e})")
+        print(f"\n❌ FAILED: {config.name} ({e})")
         return False
 
 
@@ -85,8 +89,10 @@ def main():
             continue
 
         exp_dir = args.experiments_root / exp_name
-        if exp_dir.exists():
-            print(f"Skipping {cfg.name}: experiment folder already exists ({exp_dir})")
+        # Check if experiment completed successfully by looking for evaluation summary
+        evaluation_summary = exp_dir / "evaluation" / "experiment_summary.json"
+        if evaluation_summary.exists():
+            print(f"Skipping {cfg.name}: experiment already completed ({exp_dir})")
             results.append((cfg.name, "SKIP"))
             continue
 
