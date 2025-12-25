@@ -68,7 +68,7 @@ def folder_picker(
                         selected = selected.relative_to(relative_to)
                     except ValueError:
                         # Path is outside relative_to, keep absolute but warn
-                        st.warning(f"⚠️ Selected folder is outside workspace: `{selected}`")
+                        st.warning(f"WARNING: Selected folder is outside workspace: `{selected}`")
                 
                 st.session_state[session_key] = str(selected)
                 st.rerun()
@@ -125,10 +125,10 @@ def _open_folder_dialog(initial_dir: Path) -> Optional[Path]:
         return None
         
     except ImportError:
-        st.error("❌ tkinter not available. Please type folder paths manually.")
+        st.error("ERROR: tkinter not available. Please type folder paths manually.")
         return None
     except Exception as e:
-        st.error(f"❌ Error opening folder picker: {e}")
+        st.error(f"ERROR: Error opening folder picker: {e}")
         return None
 
 
@@ -164,7 +164,7 @@ def browse_folder(initial_dir: Optional[Path] = None, relative_to: Optional[Path
             selected_path = selected_path.relative_to(relative_to)
         except ValueError:
             # Path is outside relative_to
-            st.warning(f"⚠️ Selected folder is outside workspace: `{selected_path}`")
+            st.warning(f"WARNING: Selected folder is outside workspace: `{selected_path}`")
     
     return str(selected_path)
 
@@ -190,12 +190,12 @@ def validate_folder_exists(folder_path: str | Path, show_message: bool = True) -
     path = Path(folder_path)
     if not path.exists():
         if show_message:
-            st.warning(f"⚠️ Folder not found: `{folder_path}`")
+            st.warning(f"WARNING: Folder not found: `{folder_path}`")
         return False
     
     if not path.is_dir():
         if show_message:
-            st.warning(f"⚠️ Path is not a directory: `{folder_path}`")
+            st.warning(f"WARNING: Path is not a directory: `{folder_path}`")
         return False
     
     return True
@@ -223,11 +223,11 @@ def validate_folder_not_empty(folder_path: str | Path, show_message: bool = True
     try:
         if not any(path.iterdir()):
             if show_message:
-                st.warning(f"⚠️ Folder is empty: `{folder_path}`")
+                st.warning(f"WARNING: Folder is empty: `{folder_path}`")
             return False
     except Exception as e:
         if show_message:
-            st.warning(f"⚠️ Cannot read folder: {e}")
+            st.warning(f"WARNING: Cannot read folder: {e}")
         return False
     
     return True
@@ -292,7 +292,7 @@ def show_success_message(message: str, duration: int = 3) -> None:
         duration: Seconds to show message (default: 3)
     """
     placeholder = st.empty()
-    placeholder.success(f"✓ {message}")
+    placeholder.success(f"{message}")
     import time
     time.sleep(duration)
     placeholder.empty()
@@ -336,7 +336,7 @@ def confirm_action(message: str, key: str) -> bool:
     if not st.session_state[confirm_key]:
         col1, col2 = st.columns([3, 1])
         with col1:
-            st.warning(f"⚠️ {message}")
+            st.warning(f"WARNING: {message}")
         with col2:
             if st.button("Confirm", key=f"{key}_confirm_btn"):
                 st.session_state[confirm_key] = True

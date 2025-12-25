@@ -181,7 +181,7 @@ def main():
     
     # If experiment directory exists but incomplete, clean up partial outputs
     if exp_dir.exists() and not args.skip_training:
-        print(f"\n⚠️  Experiment directory exists but incomplete. Cleaning up partial outputs...")
+        print(f"\nWARNING: Experiment directory exists but incomplete. Cleaning up partial outputs...")
         # Remove model directory to force re-training
         model_dir = exp_dir / "model"
         if model_dir.exists():

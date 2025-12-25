@@ -162,7 +162,7 @@ def data_loader(state: UIState, container=None) -> None:
             df = pd.read_csv(uploaded_file)
             state.results_df = df
             state.data_source = uploaded_file.name
-            panel.success(f"✓ Loaded {len(df)} rows from uploaded file: {uploaded_file.name}")
+            panel.success(f"Loaded {len(df)} rows from uploaded file: {uploaded_file.name}")
             return
         except Exception as e:
             panel.error(f"Failed to load uploaded CSV: {e}")
@@ -174,7 +174,7 @@ def data_loader(state: UIState, container=None) -> None:
             df = pd.read_csv(load_path)
             state.results_df = df
             state.data_source = load_path
-            panel.success(f"✓ Loaded {len(df)} rows from {load_path}")
+            panel.success(f"Loaded {len(df)} rows from {load_path}")
         except Exception as e:
             panel.error(f"Failed to load selected CSV: {e}")
 

@@ -191,7 +191,7 @@ def sweep_form() -> SweepState:
         
         # ============ DATA COMPOSITION SWEEP OPTIONS ============
         st.markdown("---")
-        st.markdown("### 🗂️ Data Composition Sweep Options")
+        st.markdown("### Data Composition Sweep Options")
         st.caption("Test different curated positive/negative subset combinations. Sweep creates ALL pairwise combinations (full factorial).")
         
         # Get workspace root for relative paths
@@ -207,7 +207,7 @@ def sweep_form() -> SweepState:
         st.caption("Each line = one sweep combination. Leave a blank line or type 'none' to test baseline without any positive subsets.")
         
         # Browse button above text area
-        if st.button("📁 Add Folder from Explorer", key="browse_pos_subset", help="Select folder from file explorer and add to list"):
+        if st.button("Add Folder from Explorer", key="browse_pos_subset", help="Select folder from file explorer and add to list"):
             # Use common browse_folder helper
             selected = browse_folder(initial_dir=workspace_root, relative_to=workspace_root)
             if selected:
@@ -237,7 +237,7 @@ def sweep_form() -> SweepState:
         st.caption("Each line = one sweep combination. Leave a blank line or type 'none' to test baseline without any negative subsets.")
         
         # Browse button above text area
-        if st.button("📁 Add Folder from Explorer", key="browse_neg_subset", help="Select folder from file explorer and add to list"):
+        if st.button("Add Folder from Explorer", key="browse_neg_subset", help="Select folder from file explorer and add to list"):
             # Use common browse_folder helper
             selected = browse_folder(initial_dir=workspace_root, relative_to=workspace_root)
             if selected:
@@ -273,9 +273,9 @@ def sweep_form() -> SweepState:
                     invalid_paths.append(path_str)
             
             if invalid_paths:
-                st.warning(f"⚠️ The following paths do not exist:\n" + "\n".join(f"- {p}" for p in invalid_paths))
+                st.warning(f"WARNING: The following paths do not exist:\n" + "\n".join(f"- {p}" for p in invalid_paths))
             else:
-                st.success(f"✓ All {len(all_subset_paths)} subset folder(s) validated")
+                st.success(f"All {len(all_subset_paths)} subset folder(s) validated")
         
         # Show baseline info if checkboxes are checked
         baseline_info = []
@@ -284,7 +284,7 @@ def sweep_form() -> SweepState:
         if include_baseline_neg:
             baseline_info.append("baseline negative (none)")
         if baseline_info:
-            st.info(f"✓ Including {' + '.join(baseline_info)}")
+            st.info(f"Including {' + '.join(baseline_info)}")
         
         # Parse positive subsets
         positive_subset_combos = []
@@ -340,7 +340,7 @@ def sweep_form() -> SweepState:
     is_valid, invalid_qualities = validate_quality(state.quality_combos)
     if not is_valid:
         st.warning(
-            f"⚠️ Invalid quality values detected: {', '.join(set(invalid_qualities))}. "
+            f"WARNING: Invalid quality values detected: {', '.join(set(invalid_qualities))}. "
             "Valid values are: high, medium, low"
         )
     
@@ -349,11 +349,11 @@ def sweep_form() -> SweepState:
     config_count = calculate_config_count(axes)
     
     st.markdown("### Preview spec")
-    st.info(f"📊 This sweep will generate **{config_count} configurations**")
+    st.info(f"This sweep will generate **{config_count} configurations**")
     
     if config_count > 500:
         st.warning(
-            f"⚠️ Large sweep detected ({config_count} configs). "
+            f"WARNING: Large sweep detected ({config_count} configs). "
             "Consider reducing axis combinations or running in batches."
         )
     
@@ -391,7 +391,7 @@ def render_action_buttons(stage: int, sweep_name: str, out_dir: str) -> tuple[bo
 
     # If spec exists, show option to use it
     if spec_exists:
-        st.info(f"📄 Existing spec found: `{spec_path}`")
+        st.info(f"Existing spec found: `{spec_path}`")
         col1, col2 = st.columns([3, 1])
         with col1:
             # bind checkbox directly to session_state key
@@ -401,33 +401,33 @@ def render_action_buttons(stage: int, sweep_name: str, out_dir: str) -> tuple[bo
                 help="Use the saved spec file instead of current UI inputs to generate configs"
             )
         if st.session_state.get("use_existing_spec"):
-            st.caption("✓ Will use existing spec file when you click 'Generate configs'")
+            st.caption("Will use existing spec file when you click 'Generate configs'")
     
     # Local convenience variable for button text
     use_existing_spec = st.session_state.get("use_existing_spec", False)
     btn_cols = st.columns(4)
     with btn_cols[0]:
         save_spec_btn = st.button(
-            "💾 Save spec YAML", 
+            "Save spec YAML", 
             key="save_spec_top",
             help="Save the sweep specification to config/sweep_specs/<name>.yaml for later use"
         )
     with btn_cols[1]:
         gen_configs_btn = st.button(
-            "⚙️ Generate configs", 
+            "Generate configs", 
             key="gen_configs_top",
             help="Generate individual experiment YAML configs in the output folder" + 
                  (" (from existing spec file)" if use_existing_spec else " (from UI form)")
         )
     with btn_cols[2]:
         run_sweep_btn = st.button(
-            "▶️ Run existing sweep", 
+            "Run existing sweep", 
             key="run_sweep_top",
             help=f"Run the existing configs in: {out_dir}"
         )
     with btn_cols[3]:
         regen_run_btn = st.button(
-            "🔄 Regenerate & run",
+            "Regenerate & run",
             key="regen_run_top",
             help=f"Regenerate configs then run sweep: {out_dir}"
         )
@@ -477,13 +477,13 @@ def sweep_actions(state: SweepState, feedback_placeholder: Any,
             title = "Spec and sweep"
         else:
             title = kind.title()
-        msg = f"⚠️ {title} target already exists: {target}. Are you sure you want to overwrite?"
+        msg = f"WARNING: {title} target already exists: {target}. Are you sure you want to overwrite?"
         if details:
             msg += f"\n{details}"
         box.warning(msg)
         c1, c2 = box.columns(2)
-        confirm = c1.button("✅ Yes, overwrite", key=f"confirm_overwrite_{kind}_{str(target)}")
-        cancel = c2.button("✖️ Cancel", key=f"cancel_overwrite_{kind}_{str(target)}")
+        confirm = c1.button("Yes, overwrite", key=f"confirm_overwrite_{kind}_{str(target)}")
+        cancel = c2.button("Cancel", key=f"cancel_overwrite_{kind}_{str(target)}")
         return confirm, cancel
 
     # Session state for pending prompts
@@ -504,7 +504,7 @@ def sweep_actions(state: SweepState, feedback_placeholder: Any,
                 # Save spec only
                 with open(target, "w", encoding="utf-8") as f:
                     yaml.safe_dump(pending["payload"], f, sort_keys=False)
-                feedback_placeholder.success(f"✅ Saved spec to {target}")
+                feedback_placeholder.success(f"Saved spec to {target}")
             elif intent == "generate_from_spec":
                 # Generate from existing spec file (user chose to use saved spec)
                 # Clean existing YAMLs in the sweep directory before regenerating
@@ -523,7 +523,7 @@ def sweep_actions(state: SweepState, feedback_placeholder: Any,
                     axes=spec_data["axes"],
                     base_params=spec_data["base_params"],
                 )
-                feedback_placeholder.success(f"✅ Generated configs from existing spec: {pending['payload']['spec_path']}")
+                feedback_placeholder.success(f"Generated configs from existing spec: {pending['payload']['spec_path']}")
             elif intent in ("generate", "regen_run"):
                 # Generate flow: update spec, then clean and regenerate sweep configs
                 spec_p = pending["payload"].get("spec_path")
@@ -554,7 +554,7 @@ def sweep_actions(state: SweepState, feedback_placeholder: Any,
                     axes=pending["payload"]["axes"],
                     base_params=pending["payload"]["base_params"],
                 )
-                feedback_placeholder.success(f"✅ Generated configs at {pending['payload']['out_dir']}")
+                feedback_placeholder.success(f"Generated configs at {pending['payload']['out_dir']}")
                 
                 # If regen_run, also run the sweep (stream live output)
                 if intent == "regen_run":
@@ -616,7 +616,7 @@ def sweep_actions(state: SweepState, feedback_placeholder: Any,
                                     height=420,
                                     max_lines=500
                                 )
-                            status_box.info(f"Running… {completed}/{total} done | ✓ {successes} • ✗ {failures}" + (f" | current: {current_exp}" if current_exp else ""))
+                            status_box.info(f"Running… {completed}/{total} done | OK: {successes} • FAIL: {failures}" + (f" | current: {current_exp}" if current_exp else ""))
                             last_ui = now
 
                     ret = proc.wait()
@@ -630,14 +630,14 @@ def sweep_actions(state: SweepState, feedback_placeholder: Any,
                             max_lines=800
                         )
                     if ret != 0:
-                        feedback_placeholder.error(f"❌ Sweep run failed with exit code {ret}. See logs above.")
+                        feedback_placeholder.error(f"Sweep run failed with exit code {ret}. See logs above.")
                     else:
-                        feedback_placeholder.success(f"✅ Sweep complete: {successes} succeeded, {failures} failed.")
+                        feedback_placeholder.success(f"Sweep complete: {successes} succeeded, {failures} failed.")
             st.session_state["pending_overwrite"] = None
             return
         elif cancel:
             st.session_state["pending_overwrite"] = None
-            feedback_placeholder.info("❎ Overwrite canceled.")
+            feedback_placeholder.info("Overwrite canceled.")
             return
 
     # Handle button actions (no pending prompt)
@@ -658,7 +658,7 @@ def sweep_actions(state: SweepState, feedback_placeholder: Any,
         # Proceed with save (fresh)
         with open(spec_path, "w", encoding="utf-8") as f:
             yaml.safe_dump(preview, f, sort_keys=False)
-        feedback_placeholder.success(f"✅ Saved spec to {spec_path}")
+        feedback_placeholder.success(f"Saved spec to {spec_path}")
     
     if generate_clicked:
         try:
@@ -702,7 +702,7 @@ def sweep_actions(state: SweepState, feedback_placeholder: Any,
                     axes=spec_data["axes"],
                     base_params=spec_data["base_params"]
                 )
-                feedback_placeholder.success(f"✅ Generated configs from existing spec: {spec_path}")
+                feedback_placeholder.success(f"Generated configs from existing spec: {spec_path}")
                 return
 
             # Normal path: use UI form data
@@ -751,9 +751,9 @@ def sweep_actions(state: SweepState, feedback_placeholder: Any,
                 axes=state.get_axes_dict(),
                 base_params=state.get_base_params_dict()
             )
-            feedback_placeholder.success(f"✅ Generated configs at {state.out_dir}")
+            feedback_placeholder.success(f"Generated configs at {state.out_dir}")
         except Exception as e:
-            feedback_placeholder.error(f"❌ Failed to generate sweep: {e}")
+            feedback_placeholder.error(f"Failed to generate sweep: {e}")
     
     if run_clicked:
         try:
@@ -762,7 +762,7 @@ def sweep_actions(state: SweepState, feedback_placeholder: Any,
             # Check if configs exist
             experiment_yamls = sorted(p for p in out_dir_path.glob("*.yaml") if p.name != "base.yaml") if out_dir_path.exists() else []
             if not experiment_yamls:
-                feedback_placeholder.error(f"❌ No experiment configs found in {state.out_dir}. Use 'Generate configs' or 'Regenerate & run' first.")
+                feedback_placeholder.error(f"No experiment configs found in {state.out_dir}. Use 'Generate configs' or 'Regenerate & run' first.")
                 return
 
             total = len(experiment_yamls)
@@ -826,7 +826,7 @@ def sweep_actions(state: SweepState, feedback_placeholder: Any,
                             height=420,
                             max_lines=500
                         )
-                    status_box.info(f"Running… {completed}/{total} done | ✓ {successes} • ✗ {failures}" + (f" | current: {current_exp}" if current_exp else ""))
+                    status_box.info(f"Running… {completed}/{total} done | OK: {successes} • FAIL: {failures}" + (f" | current: {current_exp}" if current_exp else ""))
                     last_ui = now
 
             ret = proc.wait()
@@ -841,9 +841,9 @@ def sweep_actions(state: SweepState, feedback_placeholder: Any,
                     max_lines=800
                 )
             if ret != 0:
-                feedback_placeholder.error(f"❌ Sweep run failed with exit code {ret}. See logs above.")
+                feedback_placeholder.error(f"Sweep run failed with exit code {ret}. See logs above.")
             else:
-                feedback_placeholder.success(f"✅ Sweep complete: {successes} succeeded, {failures} failed.")
+                feedback_placeholder.success(f"Sweep complete: {successes} succeeded, {failures} failed.")
 
             # Persist a summary in session state
             runs = st.session_state.get("sweep_runs", [])
@@ -856,7 +856,7 @@ def sweep_actions(state: SweepState, feedback_placeholder: Any,
             })
             st.session_state["sweep_runs"] = runs
         except Exception as e:
-            feedback_placeholder.error(f"❌ Failed to run sweep: {e}")
+            feedback_placeholder.error(f"Failed to run sweep: {e}")
     
     if regen_run_clicked:
         try:
@@ -913,7 +913,7 @@ def sweep_actions(state: SweepState, feedback_placeholder: Any,
                 axes=state.get_axes_dict(),
                 base_params=state.get_base_params_dict()
             )
-            feedback_placeholder.success(f"✅ Generated configs at {state.out_dir}")
+            feedback_placeholder.success(f"Generated configs at {state.out_dir}")
 
             # Now run the sweep with live streaming (reuse logic from run_clicked)
             total = len([p for p in out_dir_path.glob("*.yaml") if p.name != "base.yaml"]) if out_dir_path.exists() else 0
@@ -970,7 +970,7 @@ def sweep_actions(state: SweepState, feedback_placeholder: Any,
                             height=420,
                             max_lines=500
                         )
-                    status_box.info(f"Running… {completed}/{total} done | ✓ {successes} • ✗ {failures}" + (f" | current: {current_exp}" if current_exp else ""))
+                    status_box.info(f"Running… {completed}/{total} done | OK: {successes} • FAIL: {failures}" + (f" | current: {current_exp}" if current_exp else ""))
                     last_ui = now
             ret = proc.wait()
             progress_box.progress(100)
@@ -983,9 +983,9 @@ def sweep_actions(state: SweepState, feedback_placeholder: Any,
                     max_lines=800
                 )
             if ret != 0:
-                feedback_placeholder.error(f"❌ Sweep run failed with exit code {ret}. See logs above.")
+                feedback_placeholder.error(f"Sweep run failed with exit code {ret}. See logs above.")
             else:
-                feedback_placeholder.success(f"✅ Sweep complete: {successes} succeeded, {failures} failed.")
+                feedback_placeholder.success(f"Sweep complete: {successes} succeeded, {failures} failed.")
             runs = st.session_state.get("sweep_runs", [])
             runs.append({
                 "out_dir": str(out_dir_path),
@@ -996,4 +996,4 @@ def sweep_actions(state: SweepState, feedback_placeholder: Any,
             })
             st.session_state["sweep_runs"] = runs
         except Exception as e:
-            feedback_placeholder.error(f"❌ Failed to regenerate and run sweep: {e}")
+            feedback_placeholder.error(f"Failed to regenerate and run sweep: {e}")

@@ -30,7 +30,7 @@ def advanced_plot_controls(table_df: pd.DataFrame, full_df: pd.DataFrame, contai
     """
     panel = container if container is not None else st
     
-    with panel.expander("📊 Advanced Graph Tools", expanded=False):
+    with panel.expander("Advanced Graph Tools", expanded=False):
         st.markdown("**Multi-metric visualization with full customization**")
         
         # Get available metrics
@@ -45,7 +45,7 @@ def advanced_plot_controls(table_df: pd.DataFrame, full_df: pd.DataFrame, contai
             return None
         
         # === Configuration Tabs ===
-        tab1, tab2, tab3 = st.tabs(["📈 Metrics & Axes", "🎨 Style", "📍 Individual Points"])
+        tab1, tab2, tab3 = st.tabs(["Metrics & Axes", "Style", "Individual Points"])
         
         with tab1:
             st.subheader("Select Metrics to Plot")
@@ -77,7 +77,7 @@ def advanced_plot_controls(table_df: pd.DataFrame, full_df: pd.DataFrame, contai
             selected_metrics = {k: v for k, v in {**selected_ood, **selected_iid}.items() if v}
             
             if not selected_metrics:
-                st.warning("⚠️ Select at least one metric to plot")
+                st.warning("WARNING: Select at least one metric to plot")
                 return None
             
             st.divider()
@@ -221,7 +221,7 @@ def advanced_plot_controls(table_df: pd.DataFrame, full_df: pd.DataFrame, contai
         
         # Generate button
         st.divider()
-        if st.button("🎨 Generate Advanced Plot", type="primary", key="adv_generate_btn"):
+        if st.button("Generate Advanced Plot", type="primary", key="adv_generate_btn"):
             return {
                 "x_col": x_col,
                 "x_order": x_order,
@@ -565,4 +565,4 @@ def render_advanced_plot(table_df: pd.DataFrame, full_df: pd.DataFrame, config: 
     plt.close()
     
     # Offer download
-    panel.caption("💾 Right-click the plot and 'Save image as...' to download")
+    panel.caption("Right-click the plot and 'Save image as...' to download")

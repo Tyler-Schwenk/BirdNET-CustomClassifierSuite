@@ -32,9 +32,9 @@ def load_experiments(csv_path: str | Path) -> pd.DataFrame:
     # Warn if core metrics are missing, but continue (CSV may use alternate prefixes)
     missing = [m for m in constants.CORE_METRICS if m not in df.columns]
     if missing:
-        print(f"⚠️  Warning: missing core metric columns: {missing} (CSV may use different prefixes)")
+        print(f"WARNING: missing core metric columns: {missing} (CSV may use different prefixes)")
 
-    print(f"✅ Loaded {len(df)} experiment rows from {path}")
+    print(f"Loaded {len(df)} experiment rows from {path}")
     return df
 
 

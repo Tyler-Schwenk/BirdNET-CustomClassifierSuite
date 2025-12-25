@@ -14,27 +14,27 @@ from birdnet_custom_classifier_suite.pipeline import evaluate_results, collect_e
 def main():
     experiments_root = Path("experiments")
     
-    # Find all stage17 experiments
-    stage17_dirs = sorted([d for d in experiments_root.iterdir() 
-                          if d.is_dir() and d.name.startswith("stage19_")])
+    # Find all stage18 experiments
+    stage18_dirs = sorted([d for d in experiments_root.iterdir() 
+                          if d.is_dir() and d.name.startswith("stage18_")])
     
-    print(f"Found {len(stage17_dirs)} stage19 experiments")
+    print(f"Found {len(stage18_dirs)} stage18 experiments")
     
     # Evaluate each one
-    for i, exp_dir in enumerate(stage17_dirs, 1):
-        print(f"\n[{i}/{len(stage17_dirs)}] Evaluating {exp_dir.name}...")
+    for i, exp_dir in enumerate(stage18_dirs, 1):
+        print(f"\n[{i}/{len(stage18_dirs)}] Evaluating {exp_dir.name}...")
         
         # Check if results already exist
         results_file = exp_dir / "results" / "results.csv"
         if results_file.exists():
-            print(f"  ✓ Results already exist, skipping")
+            print(f"  Results already exist, skipping")
             continue
         
         try:
             evaluate_results.run_evaluation(str(exp_dir))
-            print(f"  ✓ Evaluation complete")
+            print(f"  Evaluation complete")
         except Exception as e:
-            print(f"  ✗ Error: {e}")
+            print(f"  Error: {e}")
             continue
     
     # Collect all experiments into master CSV

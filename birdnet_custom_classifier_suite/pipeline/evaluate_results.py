@@ -225,7 +225,7 @@ def load_results(folder, split_name=None):
                 missing_df = pd.DataFrame(missing_rows)
                 birdnet_df = pd.concat([birdnet_df, missing_df], ignore_index=True)
         else:
-            print(f"  ✓ All {len(all_files)} files found in BirdNET output")
+            print(f"  [OK] All {len(all_files)} files found in BirdNET output")
     
     return birdnet_df
 

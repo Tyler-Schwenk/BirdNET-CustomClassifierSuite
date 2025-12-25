@@ -29,11 +29,11 @@ def main():
         streamlit_app = Path("scripts/streamlit_app.py")
     
     if not streamlit_app.exists():
-        print(f"❌ Error: Could not find streamlit_app.py at {streamlit_app}")
+        print(f"ERROR: Could not find streamlit_app.py at {streamlit_app}")
         print("Make sure you're running from the project root or the package is installed.")
         sys.exit(1)
     
-    print(f"🚀 Launching Streamlit UI from {streamlit_app}")
+    print(f"Launching Streamlit UI from {streamlit_app}")
     
     # Launch streamlit
     try:
@@ -42,10 +42,10 @@ def main():
             check=True
         )
     except subprocess.CalledProcessError as e:
-        print(f"❌ Error launching Streamlit: {e}")
+        print(f"ERROR: Error launching Streamlit: {e}")
         sys.exit(1)
     except FileNotFoundError:
-        print("❌ Error: streamlit command not found. Make sure streamlit is installed:")
+        print("ERROR: streamlit command not found. Make sure streamlit is installed:")
         print("    pip install streamlit")
         sys.exit(1)
 

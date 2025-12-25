@@ -80,7 +80,7 @@ def save_markdown(df: pd.DataFrame, out_path: str, title: str = None, metric_pre
     md.append(tbl.to_markdown(index=False, tablefmt="github"))
     out.write_text("\n".join(md), encoding="utf-8")
 
-    print(f"✅ Markdown report saved to {out.resolve()}")
+    print(f"Markdown report saved to {out.resolve()}")
 
 
 # ------------------------- CSV Export ------------------------- #
@@ -90,7 +90,7 @@ def save_csv(df: pd.DataFrame, out_path: str):
     out = Path(out_path)
     out.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(out, index=False)
-    print(f"✅ CSV report saved to {out.resolve()}")
+    print(f"CSV report saved to {out.resolve()}")
 
 
 # ------------------------- Combined Convenience ------------------------- #
@@ -111,7 +111,7 @@ def save_reports(df: pd.DataFrame, out_dir: str, name: str, title: str = None, m
         # write empty CSV and raw CSV (preserve headers if available)
         pd.DataFrame().to_csv(csv_path, index=False)
         pd.DataFrame().to_csv(raw_csv_path, index=False)
-        print(f"✅ Empty report written to {md_path} and CSVs")
+        print(f"Empty report written to {md_path} and CSVs")
         return
 
     # Create a formatted leaderboard (strings rounded/mean ± std) for human-friendly outputs

@@ -20,7 +20,7 @@ def configure_gpu_memory():
                 # Enable memory growth for all GPUs
                 for gpu in gpus:
                     tf.config.experimental.set_memory_growth(gpu, True)
-                print(f"✓ GPU memory growth enabled for {len(gpus)} GPU(s)")
+                print(f"GPU memory growth enabled for {len(gpus)} GPU(s)")
                 
                 # Print GPU info
                 for i, gpu in enumerate(gpus):
@@ -28,14 +28,14 @@ def configure_gpu_memory():
                     
             except RuntimeError as e:
                 # Memory growth must be set before GPUs have been initialized
-                print(f"⚠ GPU configuration warning: {e}")
+                print(f"WARNING: GPU configuration warning: {e}")
         else:
-            print("ℹ No GPU detected - running on CPU")
+            print("INFO: No GPU detected - running on CPU")
             
     except ImportError:
-        print("⚠ TensorFlow not available - GPU configuration skipped")
+        print("WARNING: TensorFlow not available - GPU configuration skipped")
     except Exception as e:
-        print(f"⚠ GPU configuration error: {e}")
+        print(f"WARNING: GPU configuration error: {e}")
 
 
 if __name__ == "__main__":

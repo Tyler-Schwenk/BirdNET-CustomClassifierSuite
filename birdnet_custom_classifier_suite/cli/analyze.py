@@ -115,7 +115,7 @@ def main():
     if f1_mean_col in summary.columns:
         perfect = summary[summary[f1_mean_col] >= 0.999]
         if not perfect.empty:
-            print("\n⚠️  Warning: some summarized F1 means are >= 0.999 — listing contributors:")
+            print("\nWARNING: some summarized F1 means are >= 0.999 — listing contributors:")
             for sig in perfect["__signature"]:
                 rows = df[df["__signature"] == sig]
                 print(f"Signature {sig}: {len(rows)} runs -> experiment names: {rows['experiment.name'].unique().tolist()}")
@@ -130,7 +130,7 @@ def main():
         metric_prefix=args.metric_prefix,
     )
 
-    print("\n✅ Analysis complete!")
+    print("\nAnalysis complete!")
 
 
 if __name__ == "__main__":

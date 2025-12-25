@@ -219,8 +219,8 @@ def main():
         f.write(f"  - Detection: 'Was species present?' → High confidence even with 1 true positive\n")
         f.write(f"  - Abundance: 'How many calls?' → Confidence scales with file counts\n")
     
-    print(f"\n✅ Analysis complete!")
-    print(f"📄 Results written to: {output_path}")
+    print(f"\nAnalysis complete!")
+    print(f"Results written to: {output_path}")
     print(f"\nKey Statistics:")
     print(f"  - Total positive files: {sum(counts.values())}")
     print(f"  - Recording days: {len(counts)}")

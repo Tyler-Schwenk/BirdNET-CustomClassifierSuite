@@ -51,4 +51,4 @@ if "source_subset" in neg.columns:
     if not subset_neg.empty:
         print(f"  Subset sources: {subset_neg['source_subset'].unique().tolist()}")
 
-print("\n✅ Test passed! Data composition system is working.")
+print("\nTest passed! Data composition system is working.")

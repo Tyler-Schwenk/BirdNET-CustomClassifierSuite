@@ -61,7 +61,7 @@ def main():
                 try:
                     state.results_df = load_results(path=DEFAULT_RESULTS_PATH)
                     state.data_source = DEFAULT_RESULTS_PATH
-                    st.success(f"✓ Auto-loaded {len(state.results_df)} rows from `{DEFAULT_RESULTS_PATH}`")
+                    st.success(f"Auto-loaded {len(state.results_df)} rows from `{DEFAULT_RESULTS_PATH}`")
 
                     # Auto-analyze with default settings
                     try:
@@ -72,7 +72,7 @@ def main():
                             top_n=state.top_n,
                             precision_floor=state.precision_floor,
                         )
-                        st.success(f"✓ Auto-analyzed with default settings (top {state.top_n}, metric: {metric_prefix})")
+                        st.success(f"Auto-analyzed with default settings (top {state.top_n}, metric: {metric_prefix})")
                     except Exception as e:
                         st.warning(f"Auto-analysis failed: {e}")
                 except Exception as e:
@@ -320,7 +320,7 @@ def main():
     with sweeps_tab:
         st.header("Design and Run Sweeps")
         st.caption("Fill in parameters to generate a sweep spec and configs, then run the sweep.")
-        st.markdown("📖 [BirdNET-Analyzer CLI Arguments Documentation](https://birdnet-team.github.io/BirdNET-Analyzer/usage/cli.html#birdnet_analyzer.cli-analyzer_parser-positional-arguments)")
+        st.markdown("[BirdNET-Analyzer CLI Arguments Documentation](https://birdnet-team.github.io/BirdNET-Analyzer/usage/cli.html#birdnet_analyzer.cli-analyzer_parser-positional-arguments)")
 
         from birdnet_custom_classifier_suite.ui.sweeps import sweep_form, sweep_actions, render_action_buttons
 

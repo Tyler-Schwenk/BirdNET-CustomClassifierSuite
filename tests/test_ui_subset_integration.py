@@ -49,9 +49,9 @@ def test_sweep_state_with_subsets():
         len(state.positive_subset_opts) * 
         len(state.negative_subset_opts)
     )
-    print(f"\n✓ Expected experiment count: {expected_count} (2 seeds × 2 pos × 2 neg)")
+    print(f"\nExpected experiment count: {expected_count} (2 seeds × 2 pos × 2 neg)")
     
-    print("\n✓ All tests passed!")
+    print("\nAll tests passed!")
     return True
 
 def test_empty_subsets():
@@ -76,7 +76,7 @@ def test_empty_subsets():
     assert "positive_subsets" not in axes, "Empty positive_subsets should not be in axes"
     assert "negative_subsets" not in axes, "Empty negative_subsets should not be in axes"
     
-    print("✓ Empty subsets correctly excluded from axes")
+    print("Empty subsets correctly excluded from axes")
     return True
 
 if __name__ == "__main__":
@@ -85,10 +85,10 @@ if __name__ == "__main__":
         test_empty_subsets()
         print("\n=== All UI Integration Tests Passed! ===")
     except AssertionError as e:
-        print(f"\n✗ Test failed: {e}")
+        print(f"\nTest failed: {e}")
         sys.exit(1)
     except Exception as e:
-        print(f"\n✗ Unexpected error: {e}")
+        print(f"\nUnexpected error: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)

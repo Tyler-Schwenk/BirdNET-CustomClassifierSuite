@@ -45,13 +45,13 @@ def run_pipeline(config: Path, base_config: Path, verbose: bool = False) -> bool
         print(f"Success: {config.name}")
         return True
     except subprocess.CalledProcessError as e:
-        print(f"\n❌ FAILED: {config.name} (exit code {e.returncode})")
+        print(f"\n[FAILED] {config.name} (exit code {e.returncode})")
         print("=" * 80)
         print("Pipeline failed. Check output above for error details.")
         print("=" * 80)
         return False
     except Exception as e:
-        print(f"\n❌ FAILED: {config.name} ({e})")
+        print(f"\n[FAILED] {config.name} ({e})")
         return False
 
 
