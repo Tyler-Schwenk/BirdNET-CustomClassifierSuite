@@ -317,10 +317,6 @@ Chorus night scenario (max 645 files):
   - At 90% recall: expect to miss ~64.5 true calls/night
   - At 90% F1: expect ~64.5 total errors/night
 
-Note: Day-level confidence depends on whether you need:
-  - Detection: 'Was species present?' → High confidence even with 1 true positive
-  - Abundance: 'How many calls?' → Confidence scales with file counts
-
 Key Statistics:
   - Total positive files: 7887
   - Recording days: 139
